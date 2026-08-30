@@ -94,8 +94,26 @@ if [ -n "$MISSING" ]; then
     exit 1
 fi
 
+# Valores por defecto para las variables no obligatorias
+DB_HOST="${DB_HOST:-postgres17}"
+DB_NAME="${DB_NAME:-postgres}"
+DB_USER="${DB_USER:-postgres}"
+
 echo -e "${GREEN}✅ Configuración verificada${NC}"
+echo "   Base de datos: ${DB_USER}@${DB_HOST}/${DB_NAME}"
 echo ""
+
+# Todas las operaciones psql usan la base y el usuario de .env, no valores
+# fijos: con una base dedicada (database/create-analytics-role.sql) el
+# esquema debe crearse ahí y no en `postgres`.
+PSQL="docker exec -i ${DB_HOST} psql -U ${DB_USER} -d ${DB_NAME}"
+
+# Comprobar que las credenciales de .env funcionan antes de seguir
+if ! $PSQL -tAc "SELECT 1" >/dev/null 2>&1; then
+    echo -e "${RED}❌ No se puede conectar como ${DB_USER} a ${DB_NAME} en ${DB_HOST}${NC}"
+    echo "   Comprueba DB_HOST / DB_NAME / DB_USER en .env y que la base exista."
+    exit 1
+fi
 
 # ============================================
 # 3. Crear tabla en PostgreSQL
@@ -104,7 +122,7 @@ echo ""
 echo "📊 Creando tabla en PostgreSQL..."
 
 # Verificar si la tabla ya existe
-TABLE_EXISTS=$(docker exec postgres17 psql -U postgres -d postgres -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='cv_visits')")
+TABLE_EXISTS=$($PSQL -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='cv_visits')")
 
 if [ "$TABLE_EXISTS" = "t" ]; then
     echo -e "${YELLOW}⚠️  La tabla cv_visits ya existe${NC}"
@@ -112,7 +130,7 @@ if [ "$TABLE_EXISTS" = "t" ]; then
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "   Eliminando tabla existente..."
-        docker exec -i postgres17 psql -U postgres -d postgres -c "DROP TABLE IF EXISTS cv_visits CASCADE;"
+        $PSQL -c "DROP TABLE IF EXISTS cv_visits CASCADE;"
     else
         echo "   Manteniendo tabla existente"
     fi
@@ -120,10 +138,10 @@ fi
 
 # Ejecutar script SQL
 echo "   Ejecutando script SQL..."
-cat database/init-analytics.sql | docker exec -i postgres17 psql -U postgres -d postgres
+cat database/init-analytics.sql | $PSQL
 
 # Verificar que se creó correctamente
-TABLE_EXISTS=$(docker exec postgres17 psql -U postgres -d postgres -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='cv_visits')")
+TABLE_EXISTS=$($PSQL -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='cv_visits')")
 
 if [ "$TABLE_EXISTS" = "t" ]; then
     echo -e "${GREEN}✅ Tabla creada correctamente${NC}"
@@ -258,16 +276,16 @@ echo ""
 echo "🔍 Comandos útiles:"
 echo "   • Ver logs: docker compose logs -f analytics-api"
 echo "   • Reiniciar: docker compose restart analytics-api"
-echo "   • Ver stats: docker compose exec postgres17 psql -U postgres -d postgres -c 'SELECT * FROM cv_analytics_summary;'"
+echo "   • Ver stats: docker exec -i ${DB_HOST} psql -U ${DB_USER} -d ${DB_NAME} -c 'SELECT * FROM cv_analytics_summary;'"
 echo ""
 echo "📝 Próximos pasos:"
 echo "   1. Visita tu CV: https://devapis.cloud/cv"
 echo "   2. Abre el dashboard: https://devapis.cloud/analytics"
 echo "   3. Si vienes de una versión anterior, purga las IPs históricas:"
-echo "      cat database/migrate-anonymize-ips.sql | docker exec -i postgres17 psql -U postgres -d postgres"
+echo "      cat database/migrate-anonymize-ips.sql | docker exec -i ${DB_HOST} psql -U ${DB_USER} -d ${DB_NAME}"
 echo ""
 
 # Mostrar visitas actuales
-TOTAL_VISITS=$(docker exec -i postgres17 psql -U postgres -d postgres -tAc "SELECT COUNT(*) FROM cv_visits" 2>/dev/null || echo "0")
+TOTAL_VISITS=$($PSQL -tAc "SELECT COUNT(*) FROM cv_visits" 2>/dev/null || echo "0")
 echo -e "${GREEN}📊 Visitas registradas hasta ahora: $TOTAL_VISITS${NC}"
 echo ""

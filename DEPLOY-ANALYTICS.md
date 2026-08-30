@@ -341,14 +341,20 @@ filas automáticamente (paso **no** destructivo). Para eliminar definitivamente
 la columna con los datos personales:
 
 ```bash
+# Usa los mismos valores que tengas en .env
+set -a; . ./.env; set +a
+
 # 1. Copia de seguridad (irreversible a partir de aquí)
-docker exec postgres17 pg_dump -U postgres -d postgres -t cv_visits \
+docker exec "$DB_HOST" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
   > cv_visits_backup_$(date +%F).sql
 
 # 2. Purga
 cat database/migrate-anonymize-ips.sql | \
-  docker exec -i postgres17 psql -U postgres -d postgres
+  docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
 ```
+
+⚠️ Ejecútalo contra la **misma** base que usa el servicio. Si migraste a una
+base dedicada, `-d postgres` apuntaría a la base equivocada.
 
 El script aborta si detecta filas todavía sin anonimizar.
 

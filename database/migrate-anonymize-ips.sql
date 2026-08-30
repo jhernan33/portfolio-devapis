@@ -4,7 +4,8 @@
 --
 -- ⚠️  ESTE SCRIPT ES IRREVERSIBLE. HAZ UNA COPIA DE SEGURIDAD ANTES:
 --
---     docker exec postgres17 pg_dump -U postgres -d postgres -t cv_visits \
+--     set -a; . ./.env; set +a
+--     docker exec "$DB_HOST" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
 --       > cv_visits_backup_$(date +%F).sql
 --
 -- Contexto:
@@ -19,7 +20,9 @@
 --
 -- Uso:
 --     cat database/migrate-anonymize-ips.sql | \
---       docker exec -i postgres17 psql -U postgres -d postgres
+--       docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
+--
+--   Debe ejecutarse contra la MISMA base que usa el servicio (la de .env).
 
 BEGIN;
 
