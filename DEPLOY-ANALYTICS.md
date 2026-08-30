@@ -22,11 +22,21 @@ Agregar el siguiente contenido (ajustar según tu configuración):
 DB_HOST=postgres17
 DB_NAME=postgres
 DB_USER=postgres
-DB_PASSWORD=tu_password_real_aqui
+DB_PASSWORD=            # obligatoria
 DB_PORT=5432
+
+ANALYTICS_USER=         # obligatoria - acceso al dashboard
+ANALYTICS_PASSWORD=     # obligatoria - openssl rand -base64 32
+ANALYTICS_IP_SALT=      # obligatoria - openssl rand -hex 32
 ```
 
-**IMPORTANTE**: Reemplaza `tu_password_real_aqui` con la contraseña real de tu PostgreSQL.
+**IMPORTANTE**:
+- Las cinco variables sin valor por defecto son **obligatorias**. Si falta
+  alguna, el contenedor no arranca (a propósito: es preferible fallar a
+  arrancar con credenciales por defecto).
+- `ANALYTICS_IP_SALT` se genera **una sola vez**. Si la cambias más adelante,
+  se pierde la continuidad del conteo de visitantes únicos.
+- Copia la plantilla con `cp .env.example .env` y rellénala.
 
 ## 📊 Paso 2: Crear la Tabla en PostgreSQL
 
@@ -111,15 +121,21 @@ Respuesta esperada:
 {"status":"tracked","timestamp":"2026-01-13T..."}
 ```
 
-### 4.4. Ver analytics:
+### 4.4. Ver analytics (requiere autenticación):
 
 ```bash
-curl https://devapis.cloud/api/analytics
+curl -u "$ANALYTICS_USER:$ANALYTICS_PASSWORD" https://devapis.cloud/api/analytics
+```
+
+Sin credenciales debe responder `401`:
+
+```bash
+curl -o /dev/null -w '%{http_code}\n' https://devapis.cloud/api/analytics   # -> 401
 ```
 
 ### 4.5. Acceder al Dashboard:
 
-Abre en tu navegador:
+Abre en tu navegador (el navegador pedirá usuario y contraseña):
 
 ```
 https://devapis.cloud/analytics
@@ -278,26 +294,63 @@ Una vez que todo esté funcionando, puedes:
 
 ## 🔐 Seguridad
 
-**Importante**: El dashboard está **públicamente accesible**. Considera:
+Estado actual de la protección:
 
-1. Agregar autenticación HTTP básica:
+| Endpoint | Acceso |
+|---|---|
+| `POST /api/track` | Público, con rate limit (10 req/min, ráfaga 20) en Traefik |
+| `GET /health` | Público, no revela detalles internos |
+| `GET /api/analytics` | 🔒 HTTP Basic (`ANALYTICS_USER` / `ANALYTICS_PASSWORD`) |
+| `GET /api/analytics/recent` | 🔒 HTTP Basic |
+| `GET /analytics` | 🔒 HTTP Basic |
+
+La autenticación está implementada en `backend/main.py` con `secrets.compare_digest`
+(comparación en tiempo constante), **no** en el reverse proxy. Esto es
+deliberado: la protección forma parte del código versionado y no se pierde al
+recrear los contenedores ni al reconstruir Traefik.
+
+`/docs`, `/redoc` y `/openapi.json` están deshabilitados.
+
+### Endurecimiento adicional (opcional)
+
+1. Restringir el dashboard por IP en Traefik:
    ```yaml
-   # En docker-compose.yaml, agregar middleware
-   - "traefik.http.middlewares.dashboard-auth.basicauth.users=user:$$apr1$$..."
-   - "traefik.http.routers.analytics.middlewares=dashboard-auth"
+   - "traefik.http.middlewares.analytics-ip.ipallowlist.sourcerange=TU.IP.AQUI/32"
+   - "traefik.http.routers.analytics-private.middlewares=analytics-ip@docker"
    ```
 
-2. O restringir por IP:
-   ```yaml
-   - "traefik.http.middlewares.dashboard-ip.ipwhitelist.sourcerange=tu.ip.aqui/32"
-   ```
+2. Usar una base de datos y un rol dedicados en lugar del superusuario
+   `postgres`: ver `database/create-analytics-role.sql`.
 
-3. O mover el dashboard a otro path privado:
-   ```python
-   # En backend/main.py cambiar:
-   @app.get("/analytics")  # a
-   @app.get("/private/analytics")
-   ```
+## 🕵️ Privacidad de los visitantes
+
+Las direcciones IP **no se almacenan**. Por cada visita se guardan:
+
+- `ip_prefix`: la red truncada (`/24` en IPv4, `/48` en IPv6).
+- `ip_hash`: SHA-256 de la IP con la sal secreta `ANALYTICS_IP_SALT`.
+
+El valor de `x-forwarded-for` se valida como IP real antes de procesarse, de
+modo que una cabecera manipulada no puede inyectar contenido en la base ni en
+el dashboard.
+
+### Purgar las IPs históricas
+
+Las instalaciones anteriores a esta versión tienen una columna `ip_address` con
+IPs en claro. Al arrancar, el backend rellena `ip_prefix`/`ip_hash` de esas
+filas automáticamente (paso **no** destructivo). Para eliminar definitivamente
+la columna con los datos personales:
+
+```bash
+# 1. Copia de seguridad (irreversible a partir de aquí)
+docker exec postgres17 pg_dump -U postgres -d postgres -t cv_visits \
+  > cv_visits_backup_$(date +%F).sql
+
+# 2. Purga
+cat database/migrate-anonymize-ips.sql | \
+  docker exec -i postgres17 psql -U postgres -d postgres
+```
+
+El script aborta si detecta filas todavía sin anonimizar.
 
 ## 📞 Soporte
 

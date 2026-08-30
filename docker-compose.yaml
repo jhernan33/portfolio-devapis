@@ -18,7 +18,7 @@ services:
       - "traefik.http.routers.cv.service=cv"
       - "traefik.http.services.cv.loadbalancer.server.port=80"
     volumes:
-      - ./src:/usr/share/nginx/html:z
+      - ./src:/usr/share/nginx/html:ro,z
     networks:
       - server
     healthcheck:
@@ -35,20 +35,52 @@ services:
     container_name: cv-analytics
     restart: unless-stopped
     environment:
-      - DB_HOST=postgres17
+      - DB_HOST=${DB_HOST:-postgres17}
       - DB_NAME=${DB_NAME:-postgres}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_PORT=5432
+      # Sin valor por defecto a propósito: el backend falla al arrancar si
+      # falta, en lugar de conectarse con credenciales por defecto.
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD es obligatoria, defínela en .env}
+      - DB_PORT=${DB_PORT:-5432}
+      # Credenciales del dashboard y de la API de consulta.
+      - ANALYTICS_USER=${ANALYTICS_USER:?ANALYTICS_USER es obligatoria, defínela en .env}
+      - ANALYTICS_PASSWORD=${ANALYTICS_PASSWORD:?ANALYTICS_PASSWORD es obligatoria, defínela en .env}
+      # Sal para el hash de IPs. Si cambia, se pierde la continuidad del
+      # conteo de visitantes únicos.
+      - ANALYTICS_IP_SALT=${ANALYTICS_IP_SALT:?ANALYTICS_IP_SALT es obligatoria, defínela en .env}
     labels:
       - "traefik.enable=true"
-      # Router para /api/* y /analytics
-      - "traefik.http.routers.analytics.rule=Host(`devapis.cloud`) && (PathPrefix(`/api`) || PathPrefix(`/analytics`))"
-      - "traefik.http.routers.analytics.entrypoints=https"
-      - "traefik.http.routers.analytics.tls=true"
-      - "traefik.http.routers.analytics.tls.certresolver=resolver"
-      # Service binding
-      - "traefik.http.routers.analytics.service=analytics"
+
+      # ------------------------------------------------------------------
+      # Router público: solo el endpoint de tracking y el health check.
+      # Prioridad alta para que gane frente al router privado.
+      # ------------------------------------------------------------------
+      - "traefik.http.routers.analytics-public.rule=Host(`devapis.cloud`) && (Path(`/api/track`) || Path(`/health`))"
+      - "traefik.http.routers.analytics-public.priority=100"
+      - "traefik.http.routers.analytics-public.entrypoints=https"
+      - "traefik.http.routers.analytics-public.tls=true"
+      - "traefik.http.routers.analytics-public.tls.certresolver=resolver"
+      - "traefik.http.routers.analytics-public.service=analytics"
+      # Rate limiting: el tracking es escritura no autenticada en la BD.
+      - "traefik.http.middlewares.analytics-ratelimit.ratelimit.average=10"
+      - "traefik.http.middlewares.analytics-ratelimit.ratelimit.burst=20"
+      - "traefik.http.middlewares.analytics-ratelimit.ratelimit.period=1m"
+      - "traefik.http.routers.analytics-public.middlewares=analytics-ratelimit@docker"
+
+      # ------------------------------------------------------------------
+      # Router privado: estadísticas y dashboard.
+      # La autenticación real vive en la aplicación (backend/main.py), de
+      # modo que la protección viaja con el repositorio y no depende del
+      # reverse proxy.
+      # ------------------------------------------------------------------
+      - "traefik.http.routers.analytics-private.rule=Host(`devapis.cloud`) && (PathPrefix(`/api/analytics`) || PathPrefix(`/analytics`))"
+      - "traefik.http.routers.analytics-private.priority=50"
+      - "traefik.http.routers.analytics-private.entrypoints=https"
+      - "traefik.http.routers.analytics-private.tls=true"
+      - "traefik.http.routers.analytics-private.tls.certresolver=resolver"
+      - "traefik.http.routers.analytics-private.service=analytics"
+
+      # Service binding compartido por ambos routers
       - "traefik.http.services.analytics.loadbalancer.server.port=8000"
     networks:
       - server

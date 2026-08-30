@@ -26,5 +26,11 @@ backend/venv/
 Thumbs.db
 
 # Backup files
+# Nota: .gitignore NO desrastrea lo que ya estaba en git.
+# Estos backups se movieron a .backups/ y se desrastrearon con `git rm --cached`.
 *-old.*
 *.bak
+.backups/
+
+# Configuración local de Claude Code (contiene rutas absolutas de la máquina)
+.claude/settings.local.json

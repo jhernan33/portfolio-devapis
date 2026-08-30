@@ -3,7 +3,8 @@
 
 FROM python:3.12-slim
 
-LABEL maintainer="Hernan <jhernan33@gmail.com>"
+LABEL org.opencontainers.image.authors="Jose Hernan Varela"
+LABEL org.opencontainers.image.source="https://github.com/jhernan33/cv"
 LABEL description="CV Analytics API - FastAPI"
 
 # Variables de entorno

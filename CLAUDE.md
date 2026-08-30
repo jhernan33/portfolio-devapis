@@ -10,11 +10,19 @@ Professional CV/Portfolio landing page plus a self-hosted visit-tracking analyti
 2. **Analytics backend (`backend/`)** — FastAPI + asyncpg service that records visits into PostgreSQL and exposes a stats API and a dashboard.
 
 **Production URLs (all on `devapis.cloud`, routed by path):**
-- `/cv` → static CV site
-- `/api/track` (POST) → records a visit
-- `/api/analytics`, `/api/analytics/recent` → stats JSON
-- `/analytics` → HTML dashboard
-- `/health` → backend + DB health
+
+| Path | Method | Auth |
+|---|---|---|
+| `/cv` | GET | public — static CV site |
+| `/api/track` | POST | public (Traefik rate limit: 10/min, burst 20) |
+| `/health` | GET | public — backend + DB health |
+| `/api/analytics` | GET | **HTTP Basic** — stats JSON |
+| `/api/analytics/recent` | GET | **HTTP Basic** — recent visits JSON |
+| `/analytics` | GET | **HTTP Basic** — HTML dashboard |
+
+Auth is enforced **in the application** (`require_analytics_auth` in `backend/main.py`),
+not in Traefik, so protection is versioned and survives container recreation.
+`/docs`, `/redoc` and `/openapi.json` are disabled.
 
 ## Development Commands
 
@@ -84,20 +92,27 @@ The `Analytics` module hardcodes the production `/api/track` URL and swallows al
 Single-file FastAPI app. Key points:
 
 - **Connection pool:** one global `asyncpg` pool created in the `lifespan` handler (`min_size=1, max_size=10`), closed on shutdown.
-- **Schema auto-init:** on startup `init_database()` runs `CREATE TABLE IF NOT EXISTS` / indexes / the `cv_analytics_summary` view. This mirrors `database/init-analytics.sql`. **If you change the schema, update both** `main.py`'s DDL and `database/init-analytics.sql`.
-- **Visit tracking:** `/api/track` reads client IP from `x-forwarded-for` (Traefik sets this; takes the first IP if comma-separated), parses browser/OS/device from the User-Agent via a hand-rolled `parse_user_agent()` (no external UA library), and inserts a row. Errors return `{"status":"error"}` rather than raising.
+- **Schema auto-init:** on startup `init_database()` runs the DDL (`CREATE TABLE IF NOT EXISTS`, idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` migrations, indexes, the `cv_analytics_summary` view) and then backfills anonymized IPs for legacy rows. This mirrors `database/init-analytics.sql`. **If you change the schema, update both** `main.py`'s `DDL_SCRIPT` and `database/init-analytics.sql`.
+- **Required config:** `DB_PASSWORD`, `ANALYTICS_USER`, `ANALYTICS_PASSWORD`, `ANALYTICS_IP_SALT` have **no defaults** — `get_settings()` raises and the container refuses to start if any is missing. This is deliberate: the old code silently fell back to `postgres`/`postgres`.
+- **IP anonymization:** IPs are **never stored in clear text**. `anonymize_ip()` validates the value is a real IP (which also neutralizes injection via the client-controlled `x-forwarded-for` header), then stores `ip_prefix` (truncated /24 IPv4, /48 IPv6) and `ip_hash` (SHA-256 salted with `ANALYTICS_IP_SALT`). Changing the salt breaks unique-visitor continuity.
+- **Visit tracking:** `/api/track` parses browser/OS/device from the User-Agent via a hand-rolled `parse_user_agent()` (no external UA library) and inserts a row. Errors return `{"status":"error"}` without the exception detail.
+- **Dashboard:** built with `createElement`/`textContent`, never `innerHTML` with request-derived data.
 - **Timezone:** stored timestamps are UTC; API responses convert display times to Venezuela time (UTC-4) via `to_venezuela_time()`.
 - **CORS:** restricted to `https://devapis.cloud` and localhost origins.
-- **Data model:** single table `cv_visits` (ip, user_agent, browser, os, device_type, referer, language, visited_at, created_at).
-
-Note: the `/` root endpoint's self-description still advertises `GET /dashboard`, but the actual dashboard route is `/analytics`.
+- **Data model:** single table `cv_visits` (ip_prefix, ip_hash, user_agent, browser, os, device_type, referer, language, visited_at, created_at). Legacy installs may still carry an `ip_address` column until `database/migrate-anonymize-ips.sql` is run.
 
 ### Deployment Architecture
 ```
 Browser (HTTPS) → Traefik (TLS termination, path routing on devapis.cloud)
-    ├─ PathPrefix(/cv)                    → strip /cv → cv (Nginx :80, serves src/)
-    └─ PathPrefix(/api) or /analytics     → analytics-api (FastAPI :8000)
+    ├─ PathPrefix(/cv)                      → strip /cv → cv (Nginx :80, serves src/)
+    ├─ Path(/api/track) or Path(/health)    → analytics-api  [router analytics-public,
+    │                                          priority 100, rate-limited]
+    └─ PathPrefix(/api/analytics)           → analytics-api  [router analytics-private,
+       or PathPrefix(/analytics)               priority 50, app-level HTTP Basic]
 ```
+
+The two routers are split so tracking stays public while stats stay private.
+`priority` is set explicitly so the narrower public rule wins.
 
 Both services join the **external `server` Docker network** (must already exist; `docker network create server` if not) and rely on a **PostgreSQL container named `postgres17`** on that same network. Traefik uses cert resolver `resolver` for automatic TLS. Routing labels live in `docker-compose.yaml`; the `/cv` prefix is stripped by the `cv-stripprefix` middleware before reaching Nginx.
 
@@ -111,11 +126,16 @@ Unlike the pure-static original, the backend **does use secrets**. `.env` (gitig
 DB_HOST=postgres17
 DB_NAME=postgres
 DB_USER=postgres
-DB_PASSWORD=...
+DB_PASSWORD=...          # required, no default
 DB_PORT=5432
+ANALYTICS_USER=...       # required — guards the stats endpoints
+ANALYTICS_PASSWORD=...   # required — openssl rand -base64 32
+ANALYTICS_IP_SALT=...    # required — openssl rand -hex 32, set once, never rotate
 ```
 
-Copy `.env.example` → `.env` and set the real password. Never commit `.env`. See `DEPLOY-ANALYTICS.md` for the full first-deploy runbook and `analytics-backend-proposal.md` for design rationale.
+Copy `.env.example` → `.env` and fill every value. Never commit `.env`.
+`docker-compose.yaml` uses `${VAR:?message}` for the four required secrets, so
+`docker compose up` fails fast instead of starting with defaults. See `DEPLOY-ANALYTICS.md` for the full first-deploy runbook and `analytics-backend-proposal.md` for design rationale.
 
 ## Code Modification Guidelines
 
@@ -137,13 +157,16 @@ Spanish (`lang="es"`), semantic HTML5, ARIA labels, BEM class names.
 - Keep it dependency-light (currently only fastapi, uvicorn, asyncpg). Adding a lib means editing `backend/requirements.txt` and rebuilding the image.
 - Schema changes: update DDL in `main.py` **and** `database/init-analytics.sql`.
 - Acquire connections via `DB_POOL.acquire()`; never open ad-hoc connections.
+- Any new endpoint that returns visit data must take `Depends(require_analytics_auth)`.
+- Never persist a raw IP. Route it through `anonymize_ip()`.
+- Never return `str(e)` to the client; log it and return a generic message.
 
 ### Images
 Place in `src/assets/images/`, reference relatively (`assets/images/x.png`), set explicit `width`/`height`, descriptive `alt`.
 
 ## Important Constraints
 
-- **`-old.*` files** (`*-old.html/css/js` in `src/`) are gitignored backups — ignore them; edit the live `index.html` / `styles.css` / `main.js`.
+- **`-old.*` backups** now live in `.backups/` (gitignored and untracked), not in `src/`. They used to sit in `src/` where Nginx served them publicly at `/cv/index-old.html`. Keep them out of `src/`: anything in that directory is published. Edit the live `index.html` / `styles.css` / `main.js`.
 - **Frontend volumes** are mounted read-only in production; changes require the file to be present in `src/`.
 - **Browser support:** ES6+, CSS Grid/Flexbox, Intersection Observer required; no IE11.
 - **Performance budget:** keep total frontend page size well under 200KB (currently ~76KB); CSS/JS unminified is acceptable at this size.
@@ -155,6 +178,10 @@ Place in `src/assets/images/`, reference relatively (`assets/images/x.png`), set
 **Traefik routing:** ensure external `server` network exists (`docker network ls`); check `docker logs traefik`; inspect labels with `docker inspect`.
 
 **Backend unhealthy / DB errors:** `/health` returns 503 if the pool can't reach Postgres. Verify the `postgres17` container is up on the `server` network and `.env` credentials are correct; `docker compose logs -f analytics-api`.
+
+**Backend refuses to start / `docker compose up` errors on a variable:** a required secret is missing from `.env` (`DB_PASSWORD`, `ANALYTICS_USER`, `ANALYTICS_PASSWORD`, `ANALYTICS_IP_SALT`). This is intended behaviour, not a bug.
+
+**`/api/track` returns 401:** something is applying auth to the whole `/api` prefix — most likely a leftover Traefik `basicauth` middleware defined outside this repo (a `docker-compose.override.yaml` on the server or a Traefik file-provider config). Tracking must stay public; only `/api/analytics*` and `/analytics` are protected.
 
 **Theme not persisting:** check `localStorage` key `cv-color-scheme` (DevTools → Application → Local Storage).
 

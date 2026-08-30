@@ -73,6 +73,27 @@ if [ ! -f .env ]; then
     fi
 fi
 
+# Cargar y validar las variables obligatorias
+set -a
+# shellcheck disable=SC1091
+. ./.env
+set +a
+
+MISSING=""
+for VAR in DB_PASSWORD ANALYTICS_USER ANALYTICS_PASSWORD ANALYTICS_IP_SALT; do
+    if [ -z "${!VAR}" ]; then
+        MISSING="$MISSING $VAR"
+    fi
+done
+
+if [ -n "$MISSING" ]; then
+    echo -e "${RED}❌ Faltan variables obligatorias en .env:$MISSING${NC}"
+    echo "   Genera los secretos con:"
+    echo "     openssl rand -base64 32   # ANALYTICS_PASSWORD"
+    echo "     openssl rand -hex 32      # ANALYTICS_IP_SALT"
+    exit 1
+fi
+
 echo -e "${GREEN}✅ Configuración verificada${NC}"
 echo ""
 
@@ -198,14 +219,24 @@ else
     echo "      Respuesta: $TRACK_RESPONSE"
 fi
 
-# Test 3: Analytics endpoint
-echo -n "   Probando /api/analytics... "
-ANALYTICS_RESPONSE=$(curl -s https://devapis.cloud/api/analytics | grep -o "total_visits" || echo "failed")
+# Test 3: Analytics endpoint (autenticado)
+echo -n "   Probando /api/analytics (con credenciales)... "
+ANALYTICS_RESPONSE=$(curl -s -u "$ANALYTICS_USER:$ANALYTICS_PASSWORD" https://devapis.cloud/api/analytics | grep -o "total_visits" || echo "failed")
 
 if [ "$ANALYTICS_RESPONSE" = "total_visits" ]; then
     echo -e "${GREEN}✅${NC}"
 else
     echo -e "${RED}❌${NC}"
+fi
+
+# Test 4: el mismo endpoint SIN credenciales debe rechazar
+echo -n "   Probando /api/analytics (sin credenciales, debe dar 401)... "
+UNAUTH_CODE=$(curl -s -o /dev/null -w '%{http_code}' https://devapis.cloud/api/analytics)
+
+if [ "$UNAUTH_CODE" = "401" ]; then
+    echo -e "${GREEN}✅${NC}"
+else
+    echo -e "${RED}❌ devolvió $UNAUTH_CODE — ¡las estadísticas están expuestas!${NC}"
 fi
 
 echo ""
@@ -220,8 +251,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "📊 URLs disponibles:"
 echo "   • CV: https://devapis.cloud/cv"
-echo "   • Dashboard: https://devapis.cloud/dashboard"
-echo "   • API: https://devapis.cloud/api/analytics"
+echo "   • Dashboard: https://devapis.cloud/analytics  (requiere login)"
+echo "   • API: https://devapis.cloud/api/analytics    (requiere login)"
 echo "   • Health: https://devapis.cloud/health"
 echo ""
 echo "🔍 Comandos útiles:"
@@ -231,8 +262,9 @@ echo "   • Ver stats: docker compose exec postgres17 psql -U postgres -d postg
 echo ""
 echo "📝 Próximos pasos:"
 echo "   1. Visita tu CV: https://devapis.cloud/cv"
-echo "   2. Abre el dashboard: https://devapis.cloud/dashboard"
-echo "   3. ¡Comparte tu CV y ve las estadísticas!"
+echo "   2. Abre el dashboard: https://devapis.cloud/analytics"
+echo "   3. Si vienes de una versión anterior, purga las IPs históricas:"
+echo "      cat database/migrate-anonymize-ips.sql | docker exec -i postgres17 psql -U postgres -d postgres"
 echo ""
 
 # Mostrar visitas actuales

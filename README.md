@@ -333,7 +333,6 @@ done
   "jobTitle": "Senior Backend Developer",
   "url": "https://devapis.cloud/cv",
   "email": "jhernan33@gmail.com",
-  "telephone": "+58 414 750 5247",
   "address": {
     "@type": "PostalAddress",
     "addressRegion": "Táchira",
@@ -352,8 +351,11 @@ El CV incluye un sistema completo de analytics propio con backend FastAPI y Post
 ### Características del Analytics
 
 - **Tracking Automático**: Registra visitas automáticamente sin intervención
+- **Privacidad por diseño**: las IPs **nunca** se almacenan en claro. Se guardan
+  la red truncada (/24 en IPv4, /48 en IPv6) y un hash SHA-256 con sal, que
+  permite contar visitantes únicos sin poder reidentificarlos.
 - **Datos Capturados**:
-  - IP del visitante (desde x-forwarded-for de Traefik)
+  - Red de origen truncada (derivada de x-forwarded-for de Traefik)
   - Navegador y versión
   - Sistema operativo
   - Tipo de dispositivo (Mobile/Desktop)
@@ -363,37 +365,41 @@ El CV incluye un sistema completo de analytics propio con backend FastAPI y Post
 
 ### Endpoints Disponibles
 
+| Endpoint | Método | Autenticación |
+|---|---|---|
+| `/health` | GET | Pública |
+| `/api/track` | POST | Pública (con rate limit en Traefik) |
+| `/api/analytics` | GET | 🔒 HTTP Basic |
+| `/api/analytics/recent?limit=20` | GET | 🔒 HTTP Basic |
+| `/analytics` | GET | 🔒 HTTP Basic |
+
 ```bash
-# Health check
-GET https://devapis.cloud/health
+# Públicos
+curl https://devapis.cloud/health
+curl -X POST https://devapis.cloud/api/track
 
-# Tracking de visita (llamado automáticamente por el frontend)
-POST https://devapis.cloud/api/track
-
-# Ver estadísticas
-GET https://devapis.cloud/api/analytics
-
-# Ver visitas recientes
-GET https://devapis.cloud/api/analytics/recent?limit=20
-
-# Dashboard visual
-GET https://devapis.cloud/analytics
+# Autenticados (credenciales en ANALYTICS_USER / ANALYTICS_PASSWORD)
+curl -u "$ANALYTICS_USER:$ANALYTICS_PASSWORD" https://devapis.cloud/api/analytics
 ```
+
+La autenticación se implementa en la aplicación (`backend/main.py`), no en el
+reverse proxy: así la protección viaja con el repositorio y no se pierde al
+recrear los contenedores.
 
 ### Dashboard de Analytics
 
 El dashboard muestra en tiempo real:
 - **Visitas totales**
-- **Visitantes únicos** (por IP)
+- **Visitantes únicos** (por hash de IP con sal)
 - **Visitas últimos 7 días**
 - **Visitas hoy**
 - **Top navegadores**
-- **Top IPs** con última visita
+- **Redes de origen** truncadas, con última visita
 - **Estadísticas de dispositivos** (Mobile vs Desktop)
 - **Sistemas operativos**
 - **Últimas 10 visitas** con detalles completos
 
-**Acceso**: [https://devapis.cloud/analytics](https://devapis.cloud/analytics)
+**Acceso**: [https://devapis.cloud/analytics](https://devapis.cloud/analytics) — requiere usuario y contraseña.
 
 ### Despliegue del Analytics
 

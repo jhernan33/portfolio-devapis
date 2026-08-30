@@ -5,7 +5,8 @@
 FROM nginx:1.27-alpine
 
 # Metadatos
-LABEL maintainer="Hernan <jhernan33@gmail.com>"
+LABEL org.opencontainers.image.authors="Jose Hernan Varela"
+LABEL org.opencontainers.image.source="https://github.com/jhernan33/cv"
 LABEL description="Landing page - CV profesional"
 LABEL version="1.0"
 
