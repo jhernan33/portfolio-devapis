@@ -311,10 +311,26 @@ strong {
 	user-select: none;
 }
 
+/* Conmutador de idioma. Es un enlace, no un botón: lleva a otra URL, y esa
+   distinción importa para quien navega con teclado o lector de pantalla. */
+.nav__btn--lang {
+	text-decoration: none;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	min-width: 40px;
+}
+
 .nav__btn:hover {
 	background: var(--bg-tertiary);
 	color: var(--text-primary);
 	border-color: var(--border-color);
+}
+
+/* El conmutador no tiene sentido en papel. */
+@media print {
+	.nav__btn--lang {
+		display: none;
+	}
 }
 
 .nav__btn:active {

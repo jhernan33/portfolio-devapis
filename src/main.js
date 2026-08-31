@@ -211,7 +211,12 @@
 			if (!certSrc) return;
 			
 			this.modalImg.src = certSrc;
-			this.modalImg.alt = `Certificado ${certTitle}`;
+			// main.js se comparte entre /cv y /cv/en, así que el texto que se
+			// genera desde aquí tiene que seguir al idioma del documento. Con
+			// la cadena fija en español, un lector de pantalla en la versión
+			// inglesa anunciaba "Certificado Django".
+			const certLabel = document.documentElement.lang === 'en' ? 'Certificate' : 'Certificado';
+			this.modalImg.alt = `${certLabel} ${certTitle}`;
 			this.modalTitle.textContent = certTitle;
 			
 			this.modal.hidden = false;

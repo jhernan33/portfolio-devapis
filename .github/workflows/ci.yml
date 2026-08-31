@@ -80,6 +80,25 @@ jobs:
       - name: sitemap.xml válido
         run: python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('src/sitemap.xml')"
 
+      # src/en/index.html se genera desde src/index.html. Sin esta guarda, la
+      # versión inglesa se queda atrás en la primera edición del CV y nadie se
+      # entera, porque es la que uno no abre a diario.
+      - name: La versión en inglés está al día
+        run: python3 tools/generar-version-en.py --check
+
+      - name: Las dos versiones tienen la misma estructura
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+          def secciones(p):
+              h = pathlib.Path(p).read_text(encoding="utf-8")
+              return re.findall(r'<section[^>]*id="([^"]+)"', h)
+          es, en = secciones("src/index.html"), secciones("src/en/index.html")
+          if es != en:
+              sys.exit(f"::error::Secciones distintas — es: {es} · en: {en}")
+          print("Misma estructura:", es)
+          PY
+
       # El presupuesto está documentado en CLAUDE.md pero nada lo comprobaba.
       - name: Presupuesto de peso (sin imágenes, < 200 KB)
         run: |
