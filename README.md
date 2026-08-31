@@ -3,7 +3,7 @@
 [![Production](https://img.shields.io/badge/Live-devapis.cloud%2Fcv-0ea5e9)](https://devapis.cloud/cv)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Nginx](https://img.shields.io/badge/Nginx-1.27-009639?logo=nginx&logoColor=white)](https://nginx.org/)
-[![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
+[![License](https://img.shields.io/badge/License-All%20rights%20reserved-red)](LICENSE)
 
 Landing page profesional de CV/Portfolio para Senior Backend Developer. Sitio estático de una sola página con zero-dependencies, optimizado para rendimiento y accesibilidad.
 
@@ -365,10 +365,12 @@ Este proyecto es privado y de uso personal.
 ## 👤 Autor
 
 **José Hernán Varela**
-- Email: jhernan33@gmail.com
+- Portafolio: [devapis.cloud/cv](https://devapis.cloud/cv)
+- GitHub: [@jhernan33](https://github.com/jhernan33)
 - LinkedIn: [jhernan-13465028](https://www.linkedin.com/in/jhernan-13465028)
+- Email: jhernan33@gmail.com
 - Ubicación: Táchira, Venezuela
 
 ---
 
-**Última actualización**: 2026-01-13
+**Última actualización**: 2026-08-31

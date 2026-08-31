@@ -1,0 +1,239 @@
+name: CI
+
+# Cada comprobación de aquí corresponde a un fallo que este repositorio ya
+# tuvo. No son buenas prácticas genéricas: son regresiones concretas.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guardas:
+    name: Guardas de regresión
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # src/ es público: Nginx sirve TODO lo que hay dentro. Tres copias
+      # -old.* estuvieron descargables en /cv/index-old.html.
+      - name: Ningún fichero -old.* en src/
+        run: |
+          if find src -name '*-old.*' -print | grep -q .; then
+            echo "::error::Hay copias -old.* en src/, que Nginx publica. Muévelas a .backups/"
+            find src -name '*-old.*'
+            exit 1
+          fi
+
+      # .env lleva la contraseña de la base y la sal de las IPs.
+      - name: .env no versionado
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "::error::.env está versionado"
+            exit 1
+          fi
+
+      # El teléfono se retiró a propósito del repositorio (es público).
+      - name: Sin datos personales de contacto directo
+        run: |
+          if grep -rIEn '\+?58[ -]?414[ -]?750[ -]?5247|4147505247' . \
+               --exclude-dir=.git --exclude-dir=.github 2>/dev/null; then
+            echo "::error::Ha vuelto a aparecer el teléfono en el repositorio"
+            exit 1
+          fi
+
+      # La CSP restringe script-src a 'self': un <script> con código inline
+      # se bloquea en el navegador y el fallo solo se ve en producción.
+      # ld+json es un bloque de datos, no ejecutable, y sí está permitido.
+      - name: Sin JavaScript inline (lo bloquea la CSP)
+        run: |
+          if grep -nE '<script(?![^>]*src=)(?![^>]*application/ld\+json)' -P src/*.html; then
+            echo "::error::Script inline en src/: la CSP script-src 'self' lo bloqueará"
+            exit 1
+          fi
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: HTML bien formado y JSON-LD válido
+        run: |
+          python3 - <<'PY'
+          import json, re, pathlib, sys
+          s = pathlib.Path("src/index.html").read_text(encoding="utf-8")
+          m = re.search(r'<script type="application/ld\+json">(.*?)</script>', s, re.S)
+          if not m:
+              sys.exit("::error::Falta el bloque schema.org")
+          d = json.loads(m.group(1))          # lanza si el JSON es inválido
+          assert d["@type"] == "ProfilePage", d["@type"]
+          if "telephone" in m.group(1).lower():
+              sys.exit("::error::El schema.org incluye teléfono")
+          print("schema.org OK:", d["mainEntity"]["name"])
+          PY
+
+      - name: sitemap.xml válido
+        run: python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('src/sitemap.xml')"
+
+      # El presupuesto está documentado en CLAUDE.md pero nada lo comprobaba.
+      - name: Presupuesto de peso (sin imágenes, < 200 KB)
+        run: |
+          KB=$(du -sb --exclude=assets src/ | awk '{print int($1/1024)}')
+          echo "src/ sin imágenes: ${KB} KB"
+          [ "$KB" -lt 200 ] || { echo "::error::Presupuesto excedido: ${KB} KB"; exit 1; }
+
+      - name: Toda imagen de src/assets está referenciada
+        run: |
+          fallo=0
+          for f in src/assets/images/*; do
+            n=$(basename "$f")
+            grep -qF -- "$n" src/index.html src/styles.css src/main.js || {
+              echo "::warning::Imagen huérfana: $n"; fallo=1; }
+          done
+          exit $fallo
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Sintaxis y dependencias
+        run: |
+          python -m compileall -q backend/main.py
+          pip install -r backend/requirements.txt
+
+      # Estas dos reglas están escritas en CLAUDE.md y son fáciles de romper.
+      - name: Toda ruta de datos de visitas exige autenticación
+        run: |
+          python3 - <<'PY'
+          import ast, sys, pathlib
+          arbol = ast.parse(pathlib.Path("backend/main.py").read_text(encoding="utf-8"))
+          fallos = []
+          for n in ast.walk(arbol):
+              if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                  continue
+              rutas = [d for d in n.decorator_list
+                       if isinstance(d, ast.Call) and d.args
+                       and isinstance(d.args[0], ast.Constant)
+                       and str(d.args[0].value).startswith("/api/analytics")
+                       or (isinstance(d, ast.Call) and d.args
+                           and isinstance(d.args[0], ast.Constant)
+                           and str(d.args[0].value) == "/analytics")]
+              if rutas and "require_analytics_auth" not in ast.unparse(n.args):
+                  fallos.append(n.name)
+          if fallos:
+              sys.exit(f"::error::Rutas sin Depends(require_analytics_auth): {fallos}")
+          print("Matriz de autenticación OK")
+          PY
+
+      - name: Ninguna IP se guarda en claro
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+          s = pathlib.Path("backend/main.py").read_text(encoding="utf-8")
+
+          # Buscar la palabra suelta "ip_address" no sirve: `ipaddress.ip_address()`
+          # es la función de la biblioteca estándar que HACE la anonimización, y
+          # la migración de instalaciones antiguas tiene que nombrar la columna
+          # vieja para poder rellenar ip_prefix/ip_hash a partir de ella.
+          # El invariante real son estos dos:
+
+          # 1. La tabla que se crea no declara la columna.
+          m = re.search(r'CREATE TABLE IF NOT EXISTS cv_visits\s*\((.*?)\n\);', s, re.S)
+          if not m:
+              sys.exit("::error::No encuentro el CREATE TABLE de cv_visits")
+          if re.search(r'^\s*ip_address\b', m.group(1), re.M):
+              sys.exit("::error::El CREATE TABLE vuelve a declarar ip_address")
+
+          # 2. Ningún INSERT escribe una IP completa.
+          for ins in re.findall(r'INSERT INTO cv_visits(.*?)(?:"""|\'\'\')', s, re.S):
+              if "ip_address" in ins:
+                  sys.exit("::error::Un INSERT escribe ip_address")
+
+          for f in ("ip_prefix", "ip_hash", "anonymize_ip"):
+              assert f in s, f
+          print("Anonimización presente; la columna en claro no se crea ni se escribe")
+          PY
+
+      # El esquema vive en dos sitios y tienen que coincidir (CLAUDE.md).
+      - name: DDL sincronizado entre main.py y init-analytics.sql
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+          py = pathlib.Path("backend/main.py").read_text(encoding="utf-8")
+          sql = pathlib.Path("database/init-analytics.sql").read_text(encoding="utf-8")
+          cols = lambda t: set(re.findall(
+              r'^\s*(ip_prefix|ip_hash|user_agent|browser|os|device_type|referer|language|visited_at|created_at)\b',
+              t, re.M))
+          if cols(py) != cols(sql):
+              sys.exit(f"::error::Esquemas divergentes: solo en main.py {cols(py)-cols(sql)}, "
+                       f"solo en el SQL {cols(sql)-cols(py)}")
+          print("Esquemas sincronizados")
+          PY
+
+  compose:
+    name: Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: El compose resuelve con todas las variables
+        env:
+          DB_HOST: postgres-ci
+          DB_NAME: ci
+          DB_USER: ci
+          DB_PASSWORD: ci
+          ANALYTICS_USER: ci
+          ANALYTICS_PASSWORD: ci
+          ANALYTICS_IP_SALT: ci
+        run: docker compose config > /dev/null
+
+      # Falta una variable obligatoria: DEBE fallar. Si arranca con valores
+      # por defecto es un fallo, no una comodidad: un DB_HOST con valor por
+      # defecto dejó el servicio meses reiniciándose sin que nadie lo viera.
+      - name: Falla rápido si falta un secreto
+        env:
+          DB_NAME: ci
+          DB_USER: ci
+          DB_PASSWORD: ci
+          ANALYTICS_USER: ci
+          ANALYTICS_PASSWORD: ci
+          ANALYTICS_IP_SALT: ci
+        run: |
+          if docker compose config > /dev/null 2>&1; then
+            echo "::error::El compose arrancó sin DB_HOST; debería haber fallado"
+            exit 1
+          fi
+          echo "Falla rápido, como debe"
+
+      # Ambos routers tienen que superar el 73 del panel de Traefik, que
+      # publica PathPrefix(/api) en el mismo host. Por debajo, el tracking y
+      # las estadísticas acaban devolviendo 401 realm="traefik".
+      - name: Prioridades de Traefik por encima del panel
+        run: |
+          python3 - <<'PY'
+          import re, pathlib, sys
+          s = pathlib.Path("docker-compose.yaml").read_text(encoding="utf-8")
+          for router in ("analytics-public", "analytics-private"):
+              m = re.search(rf'routers\.{router}\.priority=(\d+)', s)
+              if not m:
+                  sys.exit(f"::error::{router} no declara priority")
+              p = int(m.group(1))
+              if p <= 73:
+                  sys.exit(f"::error::{router} tiene priority {p}; el panel de "
+                           f"Traefik vale 73 y le ganaría")
+              print(f"{router}: {p} > 73 OK")
+          PY
+
+      - name: Construir la imagen del backend
+        run: docker build -t cv-analytics:ci ./backend
