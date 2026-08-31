@@ -182,6 +182,7 @@
 			this.modal = document.getElementById('cert-modal');
 			this.modalImg = document.getElementById('cert-modal-img');
 			this.modalTitle = document.getElementById('cert-modal-title');
+			this.modalMeta = document.getElementById('cert-modal-meta');
 			this.closeBtn = this.modal?.querySelector('.cert-modal__close');
 			this.overlay = this.modal?.querySelector('.cert-modal__overlay');
 			
@@ -215,13 +216,55 @@
 			// genera desde aquí tiene que seguir al idioma del documento. Con
 			// la cadena fija en español, un lector de pantalla en la versión
 			// inglesa anunciaba "Certificado Django".
-			const certLabel = document.documentElement.lang === 'en' ? 'Certificate' : 'Certificado';
+			const en = document.documentElement.lang === 'en';
+			const certLabel = en ? 'Certificate' : 'Certificado';
 			this.modalImg.alt = `${certLabel} ${certTitle}`;
 			this.modalTitle.textContent = certTitle;
-			
+			this.renderMeta(card, en);
+
 			this.modal.hidden = false;
 			document.body.style.overflow = 'hidden';
 			this.closeBtn?.focus();
+		},
+
+		/**
+		 * Emisor, fecha y código del diploma bajo la imagen, más el enlace de
+		 * verificación cuando la tarjeta lo trae en data-verify.
+		 *
+		 * Se construye con createElement y textContent, nunca con innerHTML:
+		 * es la misma disciplina que sigue el dashboard del backend, y aquí
+		 * cuesta lo mismo aplicarla que saltársela.
+		 */
+		renderMeta(card, en) {
+			if (!this.modalMeta) return;
+			this.modalMeta.replaceChildren();
+
+			const emisorFecha = card.querySelector('.cert-card__meta')?.textContent.trim();
+			if (emisorFecha) {
+				this.modalMeta.appendChild(document.createTextNode(emisorFecha));
+			}
+
+			const codigo = card.dataset.code;
+			if (codigo) {
+				const etiqueta = document.createElement('span');
+				etiqueta.className = 'cert-modal__code';
+				etiqueta.textContent = `${en ? 'Code' : 'Código'}: ${codigo}`;
+				this.modalMeta.appendChild(etiqueta);
+			}
+
+			// El enlace solo aparece si existe de verdad. Un "Verificar" que
+			// lleva a ninguna parte es peor que no ofrecerlo: quien lo pulsa
+			// pasa a dudar del certificado.
+			const url = card.dataset.verify;
+			if (url) {
+				const enlace = document.createElement('a');
+				enlace.className = 'cert-modal__verify';
+				enlace.href = url;
+				enlace.target = '_blank';
+				enlace.rel = 'noopener';
+				enlace.textContent = en ? 'Verify on Platzi' : 'Verificar en Platzi';
+				this.modalMeta.appendChild(enlace);
+			}
 		},
 		
 		close() {

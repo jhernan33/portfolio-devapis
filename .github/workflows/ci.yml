@@ -80,6 +80,34 @@ jobs:
       - name: sitemap.xml válido
         run: python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('src/sitemap.xml')"
 
+      # Un enlace de verificación roto es peor que no ofrecerlo: quien lo pulsa
+      # pasa a dudar del certificado. Si data-verify tiene valor, tiene que ser
+      # una URL https de verdad.
+      - name: Certificaciones con código y verificación bien formada
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+          html = pathlib.Path("src/index.html").read_text(encoding="utf-8")
+          tarjetas = re.findall(r'<article class="cert-card"([^>]*)>', html)
+          if not tarjetas:
+              sys.exit("::error::No encuentro tarjetas de certificación")
+          fallos = []
+          for attrs in tarjetas:
+              titulo = re.search(r'data-title="([^"]*)"', attrs)
+              titulo = titulo.group(1) if titulo else "(sin título)"
+              if not re.search(r'data-code="[0-9a-f-]{36}"', attrs):
+                  fallos.append(f"{titulo}: falta data-code o no es un UUID")
+              verify = re.search(r'data-verify="([^"]*)"', attrs)
+              if verify is None:
+                  fallos.append(f"{titulo}: falta data-verify")
+              elif verify.group(1) and not verify.group(1).startswith("https://"):
+                  fallos.append(f"{titulo}: data-verify no es una URL https")
+          if fallos:
+              sys.exit("::error::" + " · ".join(fallos))
+          con_url = sum(1 for a in tarjetas if re.search(r'data-verify="https://', a))
+          print(f"{len(tarjetas)} certificaciones · {con_url} con enlace de verificación")
+          PY
+
       # src/en/index.html se genera desde src/index.html. Sin esta guarda, la
       # versión inglesa se queda atrás en la primera edición del CV y nadie se
       # entera, porque es la que uno no abre a diario.
