@@ -23,6 +23,12 @@ CREATE TABLE IF NOT EXISTS cv_visits (
     device_type VARCHAR(20),
     referer TEXT,
     language VARCHAR(50),
+
+    -- Tráfico propio: red interna, health checks y el servidor llamándose a
+    -- sí mismo. Se guarda igualmente porque sirve para diagnosticar, pero
+    -- queda fuera de las estadísticas.
+    is_internal BOOLEAN NOT NULL DEFAULT FALSE,
+
     visited_at TIMESTAMP DEFAULT NOW(),
 
     -- Metadata
@@ -32,6 +38,7 @@ CREATE TABLE IF NOT EXISTS cv_visits (
 -- Migración para instalaciones anteriores que aún tienen ip_address
 ALTER TABLE cv_visits ADD COLUMN IF NOT EXISTS ip_prefix VARCHAR(45);
 ALTER TABLE cv_visits ADD COLUMN IF NOT EXISTS ip_hash CHAR(64);
+ALTER TABLE cv_visits ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT FALSE;
 
 DO $$
 BEGIN
@@ -50,6 +57,11 @@ CREATE INDEX IF NOT EXISTS idx_cv_visits_visited_at ON cv_visits(visited_at DESC
 CREATE INDEX IF NOT EXISTS idx_cv_visits_device ON cv_visits(device_type);
 CREATE INDEX IF NOT EXISTS idx_cv_visits_browser ON cv_visits(browser);
 
+-- Índice parcial: todas las consultas de estadísticas filtran por
+-- `NOT is_internal`, así que el índice solo cubre esas filas.
+CREATE INDEX IF NOT EXISTS idx_cv_visits_externas
+    ON cv_visits(visited_at DESC) WHERE NOT is_internal;
+
 -- Vista para analytics rápidos
 CREATE OR REPLACE VIEW cv_analytics_summary AS
 SELECT
@@ -59,12 +71,14 @@ SELECT
     COUNT(*) FILTER (WHERE visited_at > NOW() - INTERVAL '7 days') as visits_last_7d,
     COUNT(*) FILTER (WHERE visited_at > NOW() - INTERVAL '30 days') as visits_last_30d,
     COUNT(*) FILTER (WHERE visited_at::date = CURRENT_DATE) as visits_today
-FROM cv_visits;
+FROM cv_visits
+WHERE NOT is_internal;
 
 -- Comentarios para documentación
 COMMENT ON TABLE cv_visits IS 'Registro de visitas al CV (sin datos personales identificables)';
 COMMENT ON COLUMN cv_visits.ip_prefix IS 'Red de origen truncada (/24 IPv4, /48 IPv6). Nunca la IP completa';
 COMMENT ON COLUMN cv_visits.ip_hash IS 'SHA-256 de la IP con sal secreta, solo para contar visitantes únicos';
+COMMENT ON COLUMN cv_visits.is_internal IS 'Tráfico propio (red privada o ANALYTICS_IGNORE_NETWORKS): se guarda pero no cuenta como visita';
 COMMENT ON COLUMN cv_visits.user_agent IS 'User-Agent completo del navegador';
 COMMENT ON COLUMN cv_visits.browser IS 'Navegador detectado (Chrome, Firefox, etc)';
 COMMENT ON COLUMN cv_visits.os IS 'Sistema operativo detectado (Windows, Linux, etc)';

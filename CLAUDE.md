@@ -99,7 +99,8 @@ Single-file FastAPI app. Key points:
 - **Dashboard:** built with `createElement`/`textContent`, never `innerHTML` with request-derived data.
 - **Timezone:** stored timestamps are UTC; API responses convert display times to Venezuela time (UTC-4) via `to_venezuela_time()`.
 - **CORS:** restricted to `https://devapis.cloud` and localhost origins.
-- **Data model:** single table `cv_visits` (ip_prefix, ip_hash, user_agent, browser, os, device_type, referer, language, visited_at, created_at). Legacy installs may still carry an `ip_address` column until `database/migrate-anonymize-ips.sql` is run.
+- **Data model:** single table `cv_visits` (ip_prefix, ip_hash, user_agent, browser, os, device_type, referer, language, `is_internal`, visited_at, created_at).
+- **Internal traffic:** `is_internal_ip()` flags a visit as own traffic when the IP is private/loopback/link-local/reserved **or** falls in `ANALYTICS_IGNORE_NETWORKS`. Both checks are needed: the server's own public IP is a perfectly valid public IP, so `is_private` does not catch it, and every `curl` health check fired from the VPS would count as a visit — in the first real-traffic measurement that plus internal browsing was **70% of all recorded "visits"**. Flagged rows are still stored and still appear in `/api/analytics/recent` (marked), but every aggregate query and the `cv_analytics_summary` view filter them out with `WHERE NOT is_internal`. Keep `/recent` unfiltered: in local development everything is private, and without it you cannot tell "nothing is arriving" from "it arrives and is being discarded". Legacy installs may still carry an `ip_address` column until `database/migrate-anonymize-ips.sql` is run.
 
 ### Deployment Architecture
 ```
@@ -152,6 +153,7 @@ DB_PORT=5432
 ANALYTICS_USER=...       # required — guards the stats endpoints
 ANALYTICS_PASSWORD=...   # required — openssl rand -base64 32
 ANALYTICS_IP_SALT=...    # required — openssl rand -hex 32, set once, never rotate
+ANALYTICS_IGNORE_NETWORKS=...  # optional — the server's own public IP; see above
 ```
 
 Copy `.env.example` → `.env` and fill every value. Never commit `.env`.

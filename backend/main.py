@@ -56,7 +56,42 @@ def get_settings() -> dict:
         "analytics_user": os.getenv("ANALYTICS_USER"),
         "analytics_password": os.getenv("ANALYTICS_PASSWORD"),
         "ip_salt": os.getenv("ANALYTICS_IP_SALT"),
+        "ignore_networks": parse_ignore_networks(os.getenv("ANALYTICS_IGNORE_NETWORKS", "")),
     }
+
+
+def parse_ignore_networks(raw: str) -> list:
+    """
+    Redes cuyo tráfico se registra pero no cuenta como visita.
+
+    Acepta IPs sueltas o notación CIDR, separadas por comas:
+
+        ANALYTICS_IGNORE_NETWORKS=195.26.247.93,203.0.113.0/24
+
+    Existe porque los rangos privados no bastan. La IP pública del propio
+    servidor es una IP pública perfectamente válida, así que `is_private` no la
+    detecta: sin esta lista, cada `curl` de comprobación lanzado desde el VPS
+    se contabiliza como una visita. En la primera medición con tráfico real,
+    entre eso y la red interna, el 70% de las "visitas" no eran visitantes.
+
+    Va por entorno y no escrita en el código porque la IP del servidor cambia
+    al migrar de proveedor, y ese es justo el momento en que nadie se acuerda
+    de tocar el código.
+
+    Una entrada mal escrita se descarta con aviso en lugar de impedir el
+    arranque: perder una exclusión ensucia una estadística, pero dejar el
+    servicio caído por una coma de más es peor.
+    """
+    redes = []
+    for entrada in raw.split(","):
+        entrada = entrada.strip()
+        if not entrada:
+            continue
+        try:
+            redes.append(ipaddress.ip_network(entrada, strict=False))
+        except ValueError:
+            print(f"⚠️  ANALYTICS_IGNORE_NETWORKS: '{entrada}' no es una red válida, se ignora")
+    return redes
 
 
 SETTINGS: dict = {}
@@ -134,6 +169,36 @@ def anonymize_ip(raw_ip: str):
     return prefix, digest
 
 
+def is_internal_ip(raw_ip: str) -> bool:
+    """
+    ¿Esta visita es tráfico propio en lugar de un visitante?
+
+    Descarta dos cosas distintas, y hacen falta las dos:
+
+    1. Rangos no enrutables: privados (RFC1918), loopback, link-local y
+       reservados. Cubre la navegación que sale por la red Docker, el health
+       check y el desarrollo local.
+    2. Las redes de ANALYTICS_IGNORE_NETWORKS, pensadas para la IP pública del
+       propio servidor. `is_private` NO la detecta, porque es pública de pleno
+       derecho: la máquina llamándose a sí misma por su nombre de dominio.
+
+    Una IP que no se puede interpretar cuenta como interna: si no se sabe de
+    dónde viene, no debería inflar la métrica que el CV usa para medirse.
+    """
+    if not raw_ip:
+        return True
+
+    try:
+        ip = ipaddress.ip_address(raw_ip.strip())
+    except ValueError:
+        return True
+
+    if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+        return True
+
+    return any(ip in red for red in SETTINGS.get("ignore_networks", []))
+
+
 def client_ip_from_request(request: Request) -> str:
     """Extrae la IP del cliente respetando la cadena X-Forwarded-For de Traefik."""
     forwarded = request.headers.get("x-forwarded-for")
@@ -170,6 +235,10 @@ CREATE TABLE IF NOT EXISTS cv_visits (
     device_type VARCHAR(20),
     referer TEXT,
     language VARCHAR(50),
+    -- Tráfico propio: red interna, health checks y el servidor llamándose a
+    -- sí mismo. Se guarda igualmente, porque sirve para diagnosticar, pero
+    -- queda fuera de las estadísticas.
+    is_internal BOOLEAN NOT NULL DEFAULT FALSE,
     visited_at TIMESTAMP DEFAULT NOW(),
     created_at TIMESTAMP DEFAULT NOW()
 );
@@ -177,6 +246,7 @@ CREATE TABLE IF NOT EXISTS cv_visits (
 -- Migración para instalaciones anteriores que aún tienen ip_address
 ALTER TABLE cv_visits ADD COLUMN IF NOT EXISTS ip_prefix VARCHAR(45);
 ALTER TABLE cv_visits ADD COLUMN IF NOT EXISTS ip_hash CHAR(64);
+ALTER TABLE cv_visits ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT FALSE;
 
 DO $$
 BEGIN
@@ -195,9 +265,19 @@ CREATE INDEX IF NOT EXISTS idx_cv_visits_visited_at ON cv_visits(visited_at DESC
 CREATE INDEX IF NOT EXISTS idx_cv_visits_device ON cv_visits(device_type);
 CREATE INDEX IF NOT EXISTS idx_cv_visits_browser ON cv_visits(browser);
 
+-- Índice parcial: todas las consultas de estadísticas filtran por
+-- `NOT is_internal`, así que el índice solo cubre esas filas.
+CREATE INDEX IF NOT EXISTS idx_cv_visits_externas
+    ON cv_visits(visited_at DESC) WHERE NOT is_internal;
+
 -- Vista para analytics rápidos.
 -- Se recrea sobre ip_hash para eliminar la dependencia con ip_address y
 -- permitir que la columna antigua pueda purgarse.
+--
+-- Excluye el tráfico interno. En la primera medición con tráfico real, de 23
+-- visitas registradas 16 eran navegación propia o comprobaciones lanzadas
+-- desde el propio servidor: el 70%. Contarlas convierte la única métrica que
+-- el CV usa para medirse en ruido.
 CREATE OR REPLACE VIEW cv_analytics_summary AS
 SELECT
     COUNT(*) as total_visits,
@@ -206,7 +286,8 @@ SELECT
     COUNT(*) FILTER (WHERE visited_at > NOW() - INTERVAL '7 days') as visits_last_7d,
     COUNT(*) FILTER (WHERE visited_at > NOW() - INTERVAL '30 days') as visits_last_30d,
     COUNT(*) FILTER (WHERE visited_at::date = CURRENT_DATE) as visits_today
-FROM cv_visits;
+FROM cv_visits
+WHERE NOT is_internal;
 """
 
 
@@ -245,6 +326,51 @@ async def backfill_anonymized_ips(conn) -> int:
     return len(updates)
 
 
+async def backfill_internal_flag(conn) -> int:
+    """
+    Marca como internas las visitas anteriores a que existiera la columna.
+
+    Limitación conocida: de las filas antiguas solo queda `ip_prefix`, la red
+    ya truncada a /24, no la IP original. Así que en lugar de comprobar
+    pertenencia se comprueba SOLAPAMIENTO con las redes a ignorar: si la lista
+    trae `195.26.247.93/32`, el prefijo `195.26.247.0` no está *dentro* de esa
+    /32, pero sí se solapa con ella.
+
+    Es más grosero que la comprobación en tiempo de registro, que sí usa la IP
+    exacta. Para filas históricas es el precio de no haber guardado la IP —que
+    es exactamente lo que se quería— y a cambio marca de más, nunca de menos.
+    """
+    filas = await conn.fetch("""
+        SELECT id, ip_prefix FROM cv_visits
+        WHERE NOT is_internal AND ip_prefix IS NOT NULL
+    """)
+    if not filas:
+        return 0
+
+    ignoradas = SETTINGS.get("ignore_networks", [])
+    marcar = []
+    for fila in filas:
+        try:
+            red = ipaddress.ip_network(f"{fila['ip_prefix']}/24", strict=False)
+        except ValueError:
+            continue
+        ip = red.network_address
+        interna = (
+            ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+            or any(red.overlaps(otra) for otra in ignoradas)
+        )
+        if interna:
+            marcar.append(fila["id"])
+
+    if not marcar:
+        return 0
+
+    await conn.execute(
+        "UPDATE cv_visits SET is_internal = TRUE WHERE id = ANY($1::int[])", marcar
+    )
+    return len(marcar)
+
+
 async def init_database():
     """Inicializa el esquema y migra instalaciones anteriores."""
     async with DB_POOL.acquire() as conn:
@@ -255,6 +381,17 @@ async def init_database():
         if migrated:
             print(f"✅ {migrated} visitas antiguas anonimizadas")
             print("   Ejecuta database/migrate-anonymize-ips.sql para purgar ip_address")
+
+        internas = await backfill_internal_flag(conn)
+        if internas:
+            print(f"✅ {internas} visitas marcadas como tráfico interno")
+
+        if SETTINGS.get("ignore_networks"):
+            redes = ", ".join(str(r) for r in SETTINGS["ignore_networks"])
+            print(f"ℹ️  Redes excluidas del conteo: {redes}")
+        else:
+            print("ℹ️  ANALYTICS_IGNORE_NETWORKS sin definir: solo se excluyen "
+                  "los rangos privados, no la IP pública de este servidor")
 
 
 @asynccontextmanager
@@ -375,6 +512,10 @@ async def track_visit(request: Request):
     try:
         raw_ip = client_ip_from_request(request)
         ip_prefix, ip_hash = anonymize_ip(raw_ip)
+        # Se marca en el momento de registrar, no al consultar: la lista de
+        # redes a ignorar puede cambiar, y lo que interesa es cómo se veía la
+        # visita cuando ocurrió.
+        interna = is_internal_ip(raw_ip)
 
         user_agent_string = request.headers.get("user-agent", "Unknown")
         ua_info = parse_user_agent(user_agent_string)
@@ -389,8 +530,8 @@ async def track_visit(request: Request):
                 """
                 INSERT INTO cv_visits (
                     ip_prefix, ip_hash, user_agent, browser, os,
-                    device_type, referer, language, visited_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    device_type, referer, language, is_internal, visited_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 """,
                 ip_prefix,
                 ip_hash,
@@ -400,6 +541,7 @@ async def track_visit(request: Request):
                 ua_info["device_type"],
                 referer,
                 language,
+                interna,
                 datetime.now(timezone.utc).replace(tzinfo=None),
             )
 
@@ -434,25 +576,28 @@ async def health():
 async def get_analytics(_user: str = Depends(require_analytics_auth)):
     """Estadísticas agregadas de visitas. Requiere autenticación."""
     async with DB_POOL.acquire() as conn:
-        total_visits = await conn.fetchval("SELECT COUNT(*) FROM cv_visits")
+        total_visits = await conn.fetchval(
+            "SELECT COUNT(*) FROM cv_visits WHERE NOT is_internal"
+        )
 
         unique_visitors = await conn.fetchval(
-            "SELECT COUNT(DISTINCT ip_hash) FROM cv_visits"
+            "SELECT COUNT(DISTINCT ip_hash) FROM cv_visits WHERE NOT is_internal"
         )
 
         recent_visits = await conn.fetchval("""
             SELECT COUNT(*) FROM cv_visits
-            WHERE visited_at > NOW() - INTERVAL '7 days'
+            WHERE NOT is_internal AND visited_at > NOW() - INTERVAL '7 days'
         """)
 
         today_visits = await conn.fetchval("""
             SELECT COUNT(*) FROM cv_visits
-            WHERE visited_at::date = CURRENT_DATE
+            WHERE NOT is_internal AND visited_at::date = CURRENT_DATE
         """)
 
         top_browsers = await conn.fetch("""
             SELECT browser, COUNT(*) as count
             FROM cv_visits
+            WHERE NOT is_internal
             GROUP BY browser
             ORDER BY count DESC
             LIMIT 5
@@ -465,7 +610,7 @@ async def get_analytics(_user: str = Depends(require_analytics_auth)):
                 COUNT(*) as visits,
                 MAX(visited_at) as last_visit
             FROM cv_visits
-            WHERE ip_prefix IS NOT NULL
+            WHERE NOT is_internal AND ip_prefix IS NOT NULL
             GROUP BY ip_prefix
             ORDER BY visits DESC
             LIMIT 10
@@ -474,12 +619,14 @@ async def get_analytics(_user: str = Depends(require_analytics_auth)):
         device_stats = await conn.fetch("""
             SELECT device_type, COUNT(*) as count
             FROM cv_visits
+            WHERE NOT is_internal
             GROUP BY device_type
         """)
 
         os_stats = await conn.fetch("""
             SELECT os, COUNT(*) as count
             FROM cv_visits
+            WHERE NOT is_internal
             GROUP BY os
             ORDER BY count DESC
             LIMIT 5
@@ -490,7 +637,7 @@ async def get_analytics(_user: str = Depends(require_analytics_auth)):
                 DATE(visited_at) as date,
                 COUNT(*) as visits
             FROM cv_visits
-            WHERE visited_at > NOW() - INTERVAL '30 days'
+            WHERE NOT is_internal AND visited_at > NOW() - INTERVAL '30 days'
             GROUP BY DATE(visited_at)
             ORDER BY date DESC
         """)
@@ -527,7 +674,15 @@ async def get_recent_visits(
     limit: int = Query(20, ge=1, le=100),
     _user: str = Depends(require_analytics_auth),
 ):
-    """Visitas recientes. Requiere autenticación."""
+    """
+    Visitas recientes. Requiere autenticación.
+
+    A diferencia de las estadísticas, esta lista SÍ incluye el tráfico interno,
+    marcado con `is_internal`. Es la única ventana a lo que está llegando de
+    verdad: si se filtrara también aquí, en desarrollo local —donde todo es
+    privado— el panel se vería vacío y sería imposible distinguir "no llega
+    nada" de "llega y se está descartando".
+    """
     async with DB_POOL.acquire() as conn:
         visits = await conn.fetch("""
             SELECT
@@ -537,6 +692,7 @@ async def get_recent_visits(
                 device_type,
                 referer,
                 language,
+                is_internal,
                 visited_at
             FROM cv_visits
             ORDER BY visited_at DESC
@@ -613,7 +769,8 @@ DASHBOARD_HTML = """
             border: 1px solid #334155;
             overflow-x: auto;
         }
-        .section h2 { margin-bottom: 1rem; color: #e2e8f0; font-size: 1.25rem; }
+        .section h2 { margin-bottom: 0.5rem; color: #e2e8f0; font-size: 1.25rem; }
+        .nota { margin-bottom: 1rem; color: #94a3b8; font-size: 0.8rem; }
         table { width: 100%; border-collapse: collapse; }
         th, td {
             padding: 0.75rem;
@@ -664,6 +821,7 @@ DASHBOARD_HTML = """
 
         <div class="section">
             <h2>Visitas Recientes</h2>
+            <p class="nota">Incluye el tráfico interno, que las estadísticas de arriba no cuentan.</p>
             <table id="recent-table"></table>
         </div>
     </div>
@@ -745,8 +903,16 @@ DASHBOARD_HTML = """
                 renderTable('devices-table', ['Dispositivo', 'Visitas'],
                     analytics.device_stats.map(d => [d.device_type, d.count]));
 
-                renderTable('recent-table', ['Red', 'Navegador', 'OS', 'Dispositivo', 'Fecha'],
-                    recent.visits.map(v => [v.ip_prefix, v.browser, v.os, v.device_type, formatDate(v.visited_at)]));
+                // Las visitas recientes SÍ incluyen el tráfico interno, marcado
+                // en su propia columna. Las estadísticas de arriba no lo cuentan.
+                // Sin esta tabla no habría forma de distinguir "no llega nada"
+                // de "llega y se está descartando".
+                renderTable('recent-table', ['Red', 'Navegador', 'OS', 'Dispositivo', 'Origen', 'Fecha'],
+                    recent.visits.map(v => [
+                        v.ip_prefix, v.browser, v.os, v.device_type,
+                        v.is_internal ? 'interna' : 'externa',
+                        formatDate(v.visited_at)
+                    ]));
             } catch (error) {
                 console.error('Error loading data:', error);
             }

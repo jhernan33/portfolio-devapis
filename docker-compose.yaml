@@ -65,6 +65,10 @@ services:
       # Sal para el hash de IPs. Si cambia, se pierde la continuidad del
       # conteo de visitantes únicos.
       - ANALYTICS_IP_SALT=${ANALYTICS_IP_SALT:?ANALYTICS_IP_SALT es obligatoria, defínela en .env}
+      # Opcional, a diferencia de las anteriores: sin ella el servicio arranca
+      # y solo se excluyen los rangos privados. Aquí va la IP pública de este
+      # servidor, que la detección automática no puede reconocer.
+      - ANALYTICS_IGNORE_NETWORKS=${ANALYTICS_IGNORE_NETWORKS:-}
     labels:
       - "traefik.enable=true"
 
