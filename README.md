@@ -212,6 +212,18 @@ PrintHandler      // Keyboard shortcuts (Ctrl+P)
 - Archivos ocultos (`.env`, `.htaccess`) bloqueados
 - Server tokens deshabilitados
 
+### Backend de analytics
+- Autenticación HTTP Basic a nivel de aplicación en los endpoints de estadísticas,
+  con comparación en tiempo constante
+- IPs de visitantes anonimizadas: red truncada (/24 IPv4, /48 IPv6) + hash SHA-256
+  con sal. Ninguna IP se almacena en claro
+- Secretos obligatorios sin valor por defecto: el servicio no arranca si falta alguno
+- Rate limiting en el endpoint público de tracking
+- Consultas parametrizadas; documentación interactiva deshabilitada
+
+📄 **[Decisiones técnicas](docs/DECISIONES-TECNICAS.md)** — el razonamiento detrás
+de estas decisiones, la auditoría de seguridad que las motivó y cómo se verificaron.
+
 ## 🧪 Testing
 
 ### Checklist Manual
