@@ -127,11 +127,23 @@ jobs:
           PY
 
       # El presupuesto está documentado en CLAUDE.md pero nada lo comprobaba.
-      - name: Presupuesto de peso (sin imágenes, < 200 KB)
+      # Mide lo que el navegador descarga al abrir la página: HTML, CSS y JS.
+      # Quedan fuera assets/ (las imágenes de certificado solo se piden al
+      # abrir el modal) y documentos/ (los CV descargables, que nadie pide
+      # salvo que pulse). Incluirlos mediría algo que no es el peso de carga.
+      - name: Presupuesto de peso de la página (< 200 KB)
         run: |
-          KB=$(du -sb --exclude=assets src/ | awk '{print int($1/1024)}')
-          echo "src/ sin imágenes: ${KB} KB"
+          KB=$(du -sb --exclude=assets --exclude=documentos src/ | awk '{print int($1/1024)}')
+          echo "HTML + CSS + JS: ${KB} KB"
           [ "$KB" -lt 200 ] || { echo "::error::Presupuesto excedido: ${KB} KB"; exit 1; }
+
+      # Los CV descargables sí conviene acotarlos: si algún día alguien mete
+      # ahí un PDF con imágenes, engorda el repositorio sin que se note.
+      - name: Los documentos descargables siguen siendo ligeros (< 500 KB)
+        run: |
+          KB=$(du -sb src/documentos | awk '{print int($1/1024)}')
+          echo "src/documentos: ${KB} KB"
+          [ "$KB" -lt 500 ] || { echo "::error::Documentos demasiado pesados: ${KB} KB"; exit 1; }
 
       - name: Toda imagen de src/assets está referenciada
         run: |

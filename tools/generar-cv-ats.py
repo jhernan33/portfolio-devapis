@@ -33,7 +33,7 @@ import zipfile
 from xml.sax.saxutils import escape
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
-SALIDA = RAIZ / "documentos"
+SALIDA = RAIZ / "src" / "documentos"
 
 # ---------------------------------------------------------------- contenido
 

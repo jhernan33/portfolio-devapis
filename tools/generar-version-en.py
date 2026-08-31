@@ -149,6 +149,18 @@ TRADUCCIONES = [
     ('<h2 id="avail-title" class="sr-only">Disponibilidad</h2>',
      '<h2 id="avail-title" class="sr-only">Availability</h2>'),
     ("Disponible para nuevos proyectos", "Available for new projects"),
+    # Descargas: rutas absolutas porque la página inglesa no lleva <base>, así
+    # que "documentos/..." se resolvería contra /cv/en/ y daría un 404.
+    ('''<p class="cta-box__downloads">
+						Descargar CV:
+						<a href="documentos/Jose-Hernan-Varela-Backend-Developer.pdf" download>PDF</a>
+						<a href="documentos/Jose-Hernan-Varela-Backend-Developer.docx" download>DOCX</a>
+					</p>''',
+     '''<p class="cta-box__downloads">
+						Download CV:
+						<a href="/cv/documentos/Jose-Hernan-Varela-Backend-Developer-EN.pdf" download>PDF</a>
+						<a href="/cv/documentos/Jose-Hernan-Varela-Backend-Developer-EN.docx" download>DOCX</a>
+					</p>'''),
     ("Full-time · Part-time · Freelance · Consultoría", "Full-time · Part-time · Freelance · Consulting"),
     ("Zona horaria: UTC-4 (flexible) · Inicio inmediato", "Time zone: UTC−4 (flexible) · Immediate start"),
     (">Contactar<", ">Get in touch<"),
