@@ -4,10 +4,51 @@ Este documento te guía paso a paso para desplegar el sistema de analytics en tu
 
 ## 📋 Pre-requisitos
 
-- ✅ Contenedor PostgreSQL corriendo (`postgres17`)
-- ✅ Traefik configurado en red `server`
 - ✅ Docker y Docker Compose instalados
-- ✅ Acceso a la base de datos PostgreSQL
+- ✅ Traefik configurado en la red `server`
+- ✅ Un contenedor PostgreSQL en marcha
+
+Sobre ese último punto, tres comprobaciones que parecen obvias y no lo son.
+Las tres fallaron en el primer despliegue real y cada una cuesta una tarde:
+
+**1. El nombre exacto del contenedor.** `DB_HOST` no es un hostname de red: es
+el nombre del contenedor. Míralo, no lo recuerdes:
+
+```bash
+docker ps --format '{{.Names}}' | grep -i postgres
+```
+
+Un despliegue anterior dio por hecho `postgres17` cuando el contenedor se
+llamaba `postgres17_qa-db-1`, y el servicio pasó meses reiniciándose con
+`gaierror: Temporary failure in name resolution`.
+
+**2. Red compartida con `analytics-api`.** Que el nombre sea correcto no basta:
+si no comparten red, tampoco resuelve.
+
+```bash
+docker inspect <contenedor-postgres> \
+  --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+```
+
+Si la red no es `server` ni `db-internal`, añádela a la clave `networks` del
+servicio `analytics-api` en `docker-compose.yaml` **y** ajusta
+`traefik.docker.network` (ver el paso 3).
+
+**3. `pg_hba.conf` tiene que admitir al rol.** Un PostgreSQL endurecido puede
+exigir TLS y llevar lista blanca de roles. Comprueba qué acepta de verdad:
+
+```bash
+docker exec <contenedor-postgres> psql -U postgres -tAc \
+  "SELECT line_number, type, database, user_name, address, auth_method
+     FROM pg_hba_file_rules ORDER BY line_number;"
+```
+
+Ojo con dos trampas aquí. `psql` por `docker exec` entra por el socket Unix
+local, que suele ser `trust`, así que **funcionar por ahí no demuestra nada**
+sobre el acceso por red. Y si tienes que editar `pg_hba.conf` montado por bind
+sobre un fichero suelto, Docker lo ata por inodo: `sed -i` y
+`awk > tmp && mv` crean un inodo nuevo y el contenedor sigue leyendo el viejo
+sin decir nada. Hay que reiniciar el contenedor para que rehaga el montaje.
 
 ## 🔧 Paso 1: Configurar Variables de Entorno
 
@@ -19,9 +60,9 @@ nano .env
 Agregar el siguiente contenido (ajustar según tu configuración):
 
 ```env
-DB_HOST=postgres17
-DB_NAME=postgres
-DB_USER=postgres
+DB_HOST=                # obligatoria - NOMBRE DEL CONTENEDOR, verifícalo con docker ps
+DB_NAME=                # obligatoria
+DB_USER=                # obligatoria - rol dedicado, no el superusuario
 DB_PASSWORD=            # obligatoria
 DB_PORT=5432
 
@@ -44,10 +85,10 @@ Conecta a tu base de datos PostgreSQL y ejecuta el script SQL:
 
 ```bash
 # Opción 1: Desde el host
-cat database/init-analytics.sql | docker exec -i postgres17 psql -U postgres -d postgres
+cat database/init-analytics.sql | docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
 
 # Opción 2: Manualmente
-docker exec -it postgres17 psql -U postgres -d postgres
+docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
 ```
 
 Si usas la opción 2, copia y pega el contenido de `database/init-analytics.sql`
@@ -55,7 +96,7 @@ Si usas la opción 2, copia y pega el contenido de `database/init-analytics.sql`
 ### Verificar que la tabla se creó correctamente:
 
 ```bash
-docker exec -it postgres17 psql -U postgres -d postgres -c "\dt cv_visits"
+docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "\dt cv_visits"
 ```
 
 Deberías ver:
@@ -154,22 +195,22 @@ https://devapis.cloud/analytics
 ### Ver todas las visitas:
 
 ```sql
-docker exec -it postgres17 psql -U postgres -d postgres -c "SELECT * FROM cv_visits ORDER BY visited_at DESC LIMIT 10;"
+docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT * FROM cv_visits ORDER BY visited_at DESC LIMIT 10;"
 ```
 
 ### Ver resumen de analytics:
 
 ```sql
-docker exec -it postgres17 psql -U postgres -d postgres -c "SELECT * FROM cv_analytics_summary;"
+docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT * FROM cv_analytics_summary;"
 ```
 
-### Ver top 10 IPs:
+### Ver top 10 redes (las IPs no se almacenan):
 
 ```sql
-docker exec -it postgres17 psql -U postgres -d postgres -c "
-  SELECT ip_address, COUNT(*) as visits, MAX(visited_at) as last_visit
+docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "
+  SELECT ip_prefix, COUNT(*) as visits, MAX(visited_at) as last_visit
   FROM cv_visits
-  GROUP BY ip_address
+  GROUP BY ip_prefix
   ORDER BY visits DESC
   LIMIT 10;
 "
@@ -178,7 +219,7 @@ docker exec -it postgres17 psql -U postgres -d postgres -c "
 ### Ver estadísticas de navegadores:
 
 ```sql
-docker exec -it postgres17 psql -U postgres -d postgres -c "
+docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "
   SELECT browser, COUNT(*) as count
   FROM cv_visits
   GROUP BY browser
@@ -194,9 +235,9 @@ docker exec -it postgres17 psql -U postgres -d postgres -c "
 
 **Solución**:
 
-1. Verificar que postgres17 está corriendo:
+1. Verificar que el contenedor de `DB_HOST` está corriendo:
    ```bash
-   docker ps | grep postgres17
+   docker ps --format '{{.Names}}' | grep -i postgres
    ```
 
 2. Verificar variables de entorno:
@@ -204,22 +245,52 @@ docker exec -it postgres17 psql -U postgres -d postgres -c "
    docker exec cv-analytics env | grep DB_
    ```
 
-3. Probar conexión manual:
+3. Probar la conexión **desde dentro del contenedor de analytics**, que es el
+   único camino que importa. Hacerlo con `docker exec` contra PostgreSQL usa
+   el socket local y no prueba lo mismo:
    ```bash
    docker exec cv-analytics python -c "
-   import asyncpg, asyncio
+   import asyncpg, asyncio, os
    async def test():
        conn = await asyncpg.connect(
-           user='postgres',
-           password='tu_password',
-           database='postgres',
-           host='postgres17'
+           user=os.environ['DB_USER'],
+           password=os.environ['DB_PASSWORD'],
+           database=os.environ['DB_NAME'],
+           host=os.environ['DB_HOST'],
        )
-       print('✅ Connected!')
+       print('✅ Conectado')
        await conn.close()
    asyncio.run(test())
    "
    ```
+
+### Problema: `gaierror: Temporary failure in name resolution`
+
+`DB_HOST` nombra un contenedor que no existe, o que no comparte red con
+`analytics-api`. Las tres comprobaciones de los pre-requisitos cubren ambos casos.
+
+### Problema: `pg_hba.conf rejects connection ... no encryption`
+
+El servidor exige TLS o no tiene al rol en su lista blanca. asyncpg intenta
+primero con TLS y, si lo rechazan, reintenta sin cifrar; el mensaje que ves es
+el del **segundo** intento, así que "no encryption" despista: puede que el
+problema real fuese la falta de una regla `hostssl` para ese rol. Mira
+`pg_hba_file_rules` antes de tocar nada.
+
+### Problema: las peticiones expiran, sin 502 ni entrada en el log de Traefik
+
+`curl` devuelve `000` y `/cv` sí funciona. Casi siempre significa que
+`analytics-api` está en más de una red y Traefik eligió una IP que no alcanza.
+Se arregla con la etiqueta `traefik.docker.network=server`. Para confirmarlo,
+prueba cada IP desde el propio Traefik:
+
+```bash
+for ip in $(docker inspect cv-analytics \
+    --format '{{range $k,$v := .NetworkSettings.Networks}}{{$v.IPAddress}} {{end}}'); do
+  echo -n "$ip -> "
+  docker exec traefik wget -q -O- --timeout=3 "http://$ip:8000/health" || echo INALCANZABLE
+done
+```
 
 ### Problema: Tracker no funciona en el frontend
 
@@ -278,18 +349,24 @@ docker compose restart
 
 ```bash
 # Comando que se actualiza cada 5 segundos
-watch -n 5 'docker exec -i postgres17 psql -U postgres -d postgres -t -c "SELECT * FROM cv_analytics_summary;"'
+watch -n 5 'docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT * FROM cv_analytics_summary;"'
 ```
 
 ## 🎯 Próximos Pasos
 
-Una vez que todo esté funcionando, puedes:
+Una vez que todo esté funcionando:
 
-1. ✅ Agregar geolocalización de IPs con MaxMind GeoIP2
-2. ✅ Crear gráficos con Chart.js en el dashboard
-3. ✅ Configurar alertas por email cuando alguien visite
-4. ✅ Agregar heatmap de clicks con Hotjar o similar
-5. ✅ Implementar política de privacidad (GDPR)
+1. Publicar el aviso de privacidad en el sitio — es lo único de la sección de
+   privacidad que sigue abierto.
+2. Gráficos en el dashboard con una librería servida desde el propio dominio
+   (la CSP restringe los scripts a `'self'`).
+3. Geolocalización a nivel de país. Tendría que salir de `ip_prefix`, la red
+   ya truncada: reintroducir la IP completa para geolocalizar anularía la
+   decisión de no almacenarla.
+
+Descartado a propósito: heatmaps de terceros tipo Hotjar y cualquier servicio
+externo de analítica. Contradicen el motivo por el que existe este backend,
+explicado en `docs/DECISIONES-TECNICAS.md`.
 6. ✅ Agregar autenticación al dashboard (opcional)
 
 ## 🔐 Seguridad
