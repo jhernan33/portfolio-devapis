@@ -186,3 +186,16 @@ Place in `src/assets/images/`, reference relatively (`assets/images/x.png`), set
 **Theme not persisting:** check `localStorage` key `cv-color-scheme` (DevTools → Application → Local Storage).
 
 **PDF export:** uses the browser print dialog; theme is forced light during print — use the print media query for print-only styles.
+
+## Fuente de verdad para datos personales
+
+Toda afirmación factual sobre José Hernán Varela (años de experiencia, stack por
+empleo, métricas, certificaciones, fechas) debe provenir del perfil canónico, que
+se mantiene **fuera de este repositorio** en `~/Documentos/Mio/cv-privado/PERFIL-CANONICO.md`.
+
+Ese documento es privado a propósito: contiene el inventario de correcciones
+pendientes y de métricas por verificar, y este repositorio es público.
+No lo copies aquí ni cites su contenido en archivos versionados.
+
+Nunca inventes ni estimes datos biográficos, cifras de rendimiento ni logros.
+Si un dato no está en el perfil canónico, deténte y pregunta.
