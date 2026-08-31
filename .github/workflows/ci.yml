@@ -86,6 +86,15 @@ jobs:
       - name: La versión en inglés está al día
         run: python3 tools/generar-version-en.py --check
 
+      # Los documentos ATS se generan desde tools/generar-cv-ats.py. Si el CV
+      # cambia y estos no, se acaba enviando a un portal de empleo una versión
+      # que ya no coincide con la web. Se compara word/document.xml y no el
+      # fichero entero porque un ZIP guarda marcas de tiempo.
+      - name: Los documentos ATS están al día
+        run: |
+          python3 tools/generar-cv-ats.py --check
+          python3 tools/generar-cv-ats.py --en --check
+
       - name: Las dos versiones tienen la misma estructura
         run: |
           python3 - <<'PY'
