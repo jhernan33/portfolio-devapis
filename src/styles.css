@@ -1061,6 +1061,32 @@ strong {
 	color: var(--text-tertiary);
 }
 
+/* Certificado sin imagen de diploma: la tarjeta es un enlace y lleva a la
+   verificación en Platzi. La flecha avisa de que se comporta distinto al
+   resto, que abren el diploma en un modal. */
+.cert-card--verify {
+	position: relative;
+	text-decoration: none;
+	color: inherit;
+}
+
+.cert-card--verify::after {
+	content: "↗";
+	position: absolute;
+	top: var(--space-2);
+	right: var(--space-3);
+	font-size: var(--text-xs);
+	color: var(--text-tertiary);
+	line-height: 1;
+}
+
+/* En papel no hay adónde ir. */
+@media print {
+	.cert-card--verify::after {
+		display: none;
+	}
+}
+
 /* Emisor, fecha y código bajo la imagen del diploma en el modal. Es donde la
    verificación tiene sentido: la tarjeta se mantiene limpia y quien abre el
    certificado encuentra ahí con qué comprobarlo. */

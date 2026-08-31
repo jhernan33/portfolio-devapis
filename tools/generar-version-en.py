@@ -52,6 +52,8 @@ TRADUCCIONES = [
     ("Especializado en <strong>Python (Django y FastAPI)</strong>, PostgreSQL\n\t\t\t\t\ty arquitecturas containerizadas. Remoto para LATAM y Europa.",
      "Specialised in <strong>Python (Django and FastAPI)</strong>, PostgreSQL\n\t\t\t\t\tand containerised architectures. Available for remote work across LATAM and Europe."),
     ("Información de contacto", "Contact details"),
+    ('aria-label="Certificado de Fundamentos de Python: verificar en Platzi, se abre en una pestaña nueva"',
+     'aria-label="Python Fundamentals certificate: verify on Platzi, opens in a new tab"'),
     # --- experiencia ---
     ("Experiencia Profesional", "Professional Experience"),
     ("14 años en TI. Entre 2019 y 2023 compaginé el puesto de tiempo completo con trabajo freelance, consultoría y contrato.",
