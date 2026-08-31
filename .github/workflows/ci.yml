@@ -89,14 +89,32 @@ jobs:
       - name: Las dos versiones tienen la misma estructura
         run: |
           python3 - <<'PY'
-          import pathlib, re, sys
+          import importlib.util, pathlib, re, sys
+
+          # La tabla de identificadores se importa del generador para que exista
+          # en un solo sitio: si allí se añade una sección, esto la sigue sola.
+          spec = importlib.util.spec_from_file_location("gen", "tools/generar-version-en.py")
+          gen = importlib.util.module_from_spec(spec); spec.loader.exec_module(gen)
+          mapa = dict(gen.IDS_SECCION)
+
           def secciones(p):
-              h = pathlib.Path(p).read_text(encoding="utf-8")
-              return re.findall(r'<section[^>]*id="([^"]+)"', h)
+              return re.findall(r'<section[^>]*id="([^"]+)"',
+                                pathlib.Path(p).read_text(encoding="utf-8"))
+
           es, en = secciones("src/index.html"), secciones("src/en/index.html")
-          if es != en:
-              sys.exit(f"::error::Secciones distintas — es: {es} · en: {en}")
-          print("Misma estructura:", es)
+          esperado = [mapa.get(i, i) for i in es]
+          if esperado != en:
+              sys.exit(f"::error::Secciones distintas — esperaba {esperado}, hay {en}")
+
+          # Toda ancla de la navegación tiene que apuntar a una sección real.
+          for fichero in ("src/index.html", "src/en/index.html"):
+              html = pathlib.Path(fichero).read_text(encoding="utf-8")
+              ids = set(re.findall(r'\bid="([^"]+)"', html))
+              rotas = [a for a in re.findall(r'href="#([^"]+)"', html) if a not in ids]
+              if rotas:
+                  sys.exit(f"::error::{fichero}: anclas sin destino {sorted(set(rotas))}")
+
+          print("Estructura y anclas OK:", es, "->", en)
           PY
 
       # El presupuesto está documentado en CLAUDE.md pero nada lo comprobaba.

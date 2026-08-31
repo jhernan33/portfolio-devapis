@@ -159,6 +159,17 @@ TRADUCCIONES = [
 ]
 
 
+# Identificadores de sección, que acaban visibles en la barra de direcciones
+# al navegar (/cv/en/#experience). "stack" es igual en los dos idiomas.
+# main.js no los conoce: recorre section[id] y los href de .nav__link, así que
+# traducirlos no rompe la navegación ni el resaltado de sección activa.
+IDS_SECCION = [
+    ("experiencia", "experience"),
+    ("proyectos", "projects"),
+    ("educacion", "education"),
+]
+
+
 def generar(html: str) -> str:
     faltantes = []
     for es, en in TRADUCCIONES:
@@ -167,6 +178,10 @@ def generar(html: str) -> str:
         html = html.replace(es, en)
 
     html = html.replace('<html lang="es">', '<html lang="en">', 1)
+
+    for es, en in IDS_SECCION:
+        html = html.replace(f'id="{es}"', f'id="{en}"')
+        html = html.replace(f'href="#{es}"', f'href="#{en}"')
 
     # Sin <base>. En /cv/en/ un <base href="/cv/"> heredado haría que los
     # enlaces de ancla (#experience) se resolvieran contra /cv/ y sacaran al
