@@ -244,13 +244,12 @@
 				this.modalMeta.appendChild(document.createTextNode(emisorFecha));
 			}
 
-			const codigo = card.dataset.code;
-			if (codigo) {
-				const etiqueta = document.createElement('span');
-				etiqueta.className = 'cert-modal__code';
-				etiqueta.textContent = `${en ? 'Code' : 'Código'}: ${codigo}`;
-				this.modalMeta.appendChild(etiqueta);
-			}
+			// El código del diploma se conserva en data-code pero NO se muestra.
+			// Platzi expone dos identificadores distintos —el impreso en el
+			// diploma y el certId de su integración con LinkedIn— y en once de
+			// los catorce certificados no coinciden. Con un enlace de
+			// verificación de un clic, publicar un código que no se ha podido
+			// contrastar añade riesgo sin añadir nada.
 
 			// El enlace solo aparece si existe de verdad. Un "Verificar" que
 			// lleva a ninguna parte es peor que no ofrecerlo: quien lo pulsa
