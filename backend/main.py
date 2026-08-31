@@ -138,7 +138,18 @@ def client_ip_from_request(request: Request) -> str:
     """Extrae la IP del cliente respetando la cadena X-Forwarded-For de Traefik."""
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        # Traefik añade la IP real; tomamos la primera de la cadena.
+        # Tomar la PRIMERA de la cadena solo es seguro mientras el proxy
+        # sobrescriba la cabecera en lugar de añadirse a la que mande el
+        # cliente. Traefik lo hace así salvo que la petición venga de una IP
+        # listada en `forwardedHeaders.trustedIPs`, que aquí no está definida:
+        # verificado enviando `X-Forwarded-For: 8.8.8.8` y comprobando que se
+        # registra igualmente la red real.
+        #
+        # Si algún día se pone Cloudflare delante y se configura trustedIPs
+        # para leer la IP real del visitante, esta línea pasa a leer un valor
+        # que controla el cliente y cualquiera podrá falsear su red. La
+        # validación de anonymize_ip no protege de eso: descarta basura, pero
+        # 8.8.8.8 es una IP perfectamente válida.
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else ""
 
