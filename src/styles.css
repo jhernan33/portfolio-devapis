@@ -1061,6 +1061,47 @@ strong {
 	color: var(--text-tertiary);
 }
 
+/* Certificaciones colapsadas.
+   Se ocultan SOLO cuando hay JavaScript (data-js lo pone main.js al cargar):
+   sin él se ven las diecinueve, que es el comportamiento correcto si el script
+   falla o el navegador lo bloquea. Ocultarlas por defecto y revelarlas con JS
+   dejaría media sección invisible ante cualquier fallo. */
+[data-js="true"] .certs-grid[data-expanded="false"] .cert-card--extra {
+	display: none;
+}
+
+.certs-toggle {
+	display: block;
+	margin: var(--space-5) auto 0;
+	padding: var(--space-2) var(--space-5);
+	background: transparent;
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-md);
+	color: var(--text-secondary);
+	font-family: inherit;
+	font-size: var(--text-sm);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.certs-toggle:hover,
+.certs-toggle:focus-visible {
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
+}
+
+/* En papel se imprimen todas y el botón sobra. */
+@media print {
+	.cert-card--extra {
+		display: flex !important;
+	}
+
+	.certs-toggle {
+		display: none !important;
+	}
+}
+
 /* Certificado sin imagen de diploma: la tarjeta es un enlace y lleva a la
    verificación en Platzi. La flecha avisa de que se comporta distinto al
    resto, que abren el diploma en un modal. */

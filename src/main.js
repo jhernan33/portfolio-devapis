@@ -273,9 +273,68 @@
 	};
 
 	/* ============================================
+	   CERTS TOGGLE
+	   ============================================ */
+
+	/**
+	 * Colapsa las certificaciones que no son destacadas.
+	 *
+	 * Diecinueve tarjetas de golpe, con seis de IA entre ellas, desplazan lo
+	 * relevante en una vacante backend. Se muestran nueve y el resto queda tras
+	 * un botón.
+	 *
+	 * El HTML llega con todas visibles y es este módulo el que las oculta. Al
+	 * revés —ocultas por defecto, reveladas por JS— media sección desaparecería
+	 * si el script fallara o el navegador lo bloqueara.
+	 */
+	const CertsToggle = {
+		init() {
+			this.grid = document.getElementById('certs-grid');
+			this.btn = document.getElementById('certs-toggle');
+			if (!this.grid || !this.btn) return;
+
+			this.extras = this.grid.querySelectorAll('.cert-card--extra');
+			if (!this.extras.length) return;
+
+			// El número sale del DOM, no de una constante: si mañana cambia el
+			// reparto entre destacadas y colapsadas, la etiqueta lo sigue sola.
+			this.en = document.documentElement.lang === 'en';
+			this.btn.hidden = false;
+			this.render();
+
+			const alternar = (e) => {
+				e.preventDefault();
+				this.toggle();
+			};
+			this.btn.addEventListener('click', alternar);
+			this.btn.addEventListener('touchend', alternar);
+		},
+
+		get expandido() {
+			return this.grid.dataset.expanded === 'true';
+		},
+
+		render() {
+			const n = this.extras.length;
+			this.btn.textContent = this.expandido
+				? (this.en ? 'Show fewer' : 'Ver menos')
+				: (this.en ? `Show ${n} more certifications` : `Ver ${n} certificaciones más`);
+			this.btn.setAttribute('aria-expanded', String(this.expandido));
+		},
+
+		toggle() {
+			this.grid.dataset.expanded = String(!this.expandido);
+			this.render();
+			// Al colapsar, devolver el foco al botón: si no, el lector de
+			// pantalla se queda anclado a una tarjeta que acaba de ocultarse.
+			if (!this.expandido) this.btn.focus();
+		}
+	};
+
+	/* ============================================
 	   PDF EXPORT
 	   ============================================ */
-	
+
 	const PDFExport = {
 		init() {
 			this.btn = document.getElementById('export-pdf');
@@ -373,17 +432,23 @@
 	
 	function init() {
 		console.log('CV JS initialized');
+
+		// Lo primero, antes de cualquier módulo: hay CSS que depende de este
+		// atributo (las certificaciones colapsadas). Marcarlo al final dejaba
+		// un parpadeo en el que se veían las diecinueve tarjetas y acto seguido
+		// se plegaban.
+		document.documentElement.setAttribute('data-js', 'true');
+
 		ThemeManager.init();
 		SmoothScroll.init();
 		NavHighlight.init();
 		Accessibility.init();
 		CertModal.init();
+		CertsToggle.init();
 		PDFExport.init();
 		PrintHandler.init();
 		Analytics.init();
 
-		// Mark JS as enabled
-		document.documentElement.setAttribute('data-js', 'true');
 		console.log('All modules loaded');
 	}
 

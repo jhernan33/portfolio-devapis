@@ -455,13 +455,13 @@
 
 			<header class="section__header section__header--sub">
 				<h3 class="section__title section__title--sub">Certificaciones</h3>
-				<p class="section__subtitle">18 certificaciones · más de 215 h de formación continua (2024–2026), todas de Platzi</p>
+				<p class="section__subtitle">21 certificaciones · más de 229 h de formación continua (2023–2026), todas de Platzi</p>
 			</header>
-			<div class="certs-grid">
-				<!-- Backend & Frameworks -->
-				<!-- Sin imagen de diploma: esta tarjeta es un enlace y lleva
-				     directamente a la verificación en Platzi, en lugar de abrir
-				     un modal que no tendría nada que mostrar. -->
+			<div class="certs-grid" id="certs-grid" data-expanded="false">
+				<!-- Los nueve primeros son los destacados: los ocho que fija el perfil
+				     canónico más Python, que no existía cuando se escribió esa lista.
+				     El resto se colapsa tras el botón, porque quince tarjetas de golpe
+				     -seis de ellas de IA- desplazan lo relevante en una vacante backend. -->
 				<a class="cert-card cert-card--verify"
 				   href="https://platzi.com/p/hernan33/curso/12286-course/diploma/detalle/"
 				   target="_blank" rel="noopener"
@@ -479,19 +479,6 @@
 						<span class="cert-card__meta">Platzi · oct 2025</span>
 					</div>
 				</a>
-				<article class="cert-card" data-cert="assets/images/Django.png" data-title="Django" data-issuer="Platzi" data-code="d3b98e2b-e93a-4776-9017-ffa873fae04e" data-verify="https://platzi.com/p/hernan33/curso/9574-course/diploma/detalle/">
-					<div class="cert-card__icon">
-						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-							<polyline points="22 4 12 14.01 9 11.01"></polyline>
-						</svg>
-					</div>
-					<div class="cert-card__content">
-						<h4 class="cert-card__title">Django</h4>
-						<span class="cert-card__category">Backend</span>
-						<span class="cert-card__meta">Platzi · sep 2024</span>
-					</div>
-				</article>
 				<article class="cert-card" data-cert="assets/images/FastApi.png" data-title="FastAPI" data-issuer="Platzi" data-code="ee18ebdf-71dd-4db5-8ab2-684e1fff559e" data-verify="https://platzi.com/p/hernan33/curso/11190-course/diploma/detalle/">
 					<div class="cert-card__icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -505,7 +492,7 @@
 						<span class="cert-card__meta">Platzi · ago 2025</span>
 					</div>
 				</article>
-				<article class="cert-card" data-cert="assets/images/Laravel.png" data-title="Laravel" data-issuer="Platzi" data-code="b2476d55-c36c-4651-b8d5-7e036a44a6eb" data-verify="https://platzi.com/p/hernan33/curso/2185-course/diploma/detalle/">
+				<article class="cert-card" data-cert="assets/images/Django.png" data-title="Django" data-issuer="Platzi" data-code="d3b98e2b-e93a-4776-9017-ffa873fae04e" data-verify="https://platzi.com/p/hernan33/curso/9574-course/diploma/detalle/">
 					<div class="cert-card__icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -513,22 +500,9 @@
 						</svg>
 					</div>
 					<div class="cert-card__content">
-						<h4 class="cert-card__title">Laravel</h4>
+						<h4 class="cert-card__title">Django</h4>
 						<span class="cert-card__category">Backend</span>
-						<span class="cert-card__meta">Platzi · oct 2024</span>
-					</div>
-				</article>
-				<article class="cert-card" data-cert="assets/images/BackednConExpress.png" data-title="Express.js" data-issuer="Platzi" data-code="88fffece-cfc3-48f6-ab7b-dfa450bc35b6" data-verify="https://platzi.com/p/hernan33/curso/11971-course/diploma/detalle/">
-					<div class="cert-card__icon">
-						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-							<polyline points="22 4 12 14.01 9 11.01"></polyline>
-						</svg>
-					</div>
-					<div class="cert-card__content">
-						<h4 class="cert-card__title">Express.js</h4>
-						<span class="cert-card__category">Backend</span>
-						<span class="cert-card__meta">Platzi · abr 2025</span>
+						<span class="cert-card__meta">Platzi · sep 2024</span>
 					</div>
 				</article>
 				<article class="cert-card" data-cert="assets/images/Postgresql.png" data-title="PostgreSQL" data-issuer="Platzi" data-code="d431302b-4a96-47bb-afb0-8952ba9c9485" data-verify="https://platzi.com/p/hernan33/curso/12074-course/diploma/detalle/">
@@ -557,7 +531,11 @@
 						<span class="cert-card__meta">Platzi · oct 2025</span>
 					</div>
 				</article>
-				<article class="cert-card" data-cert="assets/images/FundamentosJavascript.png" data-title="JavaScript Fundamentos" data-issuer="Platzi" data-code="382094fb-5f91-40ea-8e85-839b838e236a" data-verify="https://platzi.com/p/hernan33/curso/10266-course/diploma/detalle/">
+				<a class="cert-card cert-card--verify"
+				   href="https://platzi.com/p/hernan33/curso/5877-course/diploma/detalle/"
+				   target="_blank" rel="noopener"
+				   aria-label="Certificado de Administración de Servidores Linux: verificar en Platzi, se abre en una pestaña nueva"
+				   data-title="Servidores Linux" data-issuer="Platzi" data-code="6ea6bacf-e5c2-4dff-acfc-216c936f39c6" data-verify="https://platzi.com/p/hernan33/curso/5877-course/diploma/detalle/">
 					<div class="cert-card__icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -565,12 +543,16 @@
 						</svg>
 					</div>
 					<div class="cert-card__content">
-						<h4 class="cert-card__title">JavaScript</h4>
-						<span class="cert-card__category">Lenguaje</span>
-						<span class="cert-card__meta">Platzi · mar 2025</span>
+						<h4 class="cert-card__title">Servidores Linux</h4>
+						<span class="cert-card__category">DevOps</span>
+						<span class="cert-card__meta">Platzi · jul 2026</span>
 					</div>
-				</article>
-				<article class="cert-card" data-cert="assets/images/ClaudeAi.png" data-title="Claude AI" data-issuer="Platzi" data-code="d44ee910-39e6-4646-972d-62649698723a" data-verify="https://platzi.com/p/hernan33/curso/11408-course/diploma/detalle/">
+				</a>
+				<a class="cert-card cert-card--verify"
+				   href="https://platzi.com/p/hernan33/curso/12840-course/diploma/detalle/"
+				   target="_blank" rel="noopener"
+				   aria-label="Certificado de Ciberseguridad Preventiva: verificar en Platzi, se abre en una pestaña nueva"
+				   data-title="Ciberseguridad" data-issuer="Platzi" data-code="c327859d-2fcd-408d-8103-25e80cd07824" data-verify="https://platzi.com/p/hernan33/curso/12840-course/diploma/detalle/">
 					<div class="cert-card__icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -578,9 +560,22 @@
 						</svg>
 					</div>
 					<div class="cert-card__content">
-						<h4 class="cert-card__title">Claude AI</h4>
-						<span class="cert-card__category">IA</span>
-						<span class="cert-card__meta">Platzi · may 2025</span>
+						<h4 class="cert-card__title">Ciberseguridad</h4>
+						<span class="cert-card__category">Seguridad</span>
+						<span class="cert-card__meta">Platzi · mar 2026</span>
+					</div>
+				</a>
+				<article class="cert-card" data-cert="assets/images/BackednConExpress.png" data-title="Express.js" data-issuer="Platzi" data-code="88fffece-cfc3-48f6-ab7b-dfa450bc35b6" data-verify="https://platzi.com/p/hernan33/curso/11971-course/diploma/detalle/">
+					<div class="cert-card__icon">
+						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+							<polyline points="22 4 12 14.01 9 11.01"></polyline>
+						</svg>
+					</div>
+					<div class="cert-card__content">
+						<h4 class="cert-card__title">Express.js</h4>
+						<span class="cert-card__category">Backend</span>
+						<span class="cert-card__meta">Platzi · abr 2025</span>
 					</div>
 				</article>
 				<article class="cert-card" data-cert="assets/images/ClaudeCode.png" data-title="Claude Code" data-issuer="Platzi" data-code="c7cda4cb-56b7-4df6-ace1-fe805cfed7b9" data-verify="https://platzi.com/p/hernan33/curso/12284-course/diploma/detalle/">
@@ -596,7 +591,48 @@
 						<span class="cert-card__meta">Platzi · ene 2026</span>
 					</div>
 				</article>
-				<article class="cert-card" data-cert="assets/images/Windsurf.png" data-title="Windsurf" data-issuer="Platzi" data-code="a35dc5be-66d4-42fe-8293-3a43466581be" data-verify="https://platzi.com/p/hernan33/curso/12298-course/diploma/detalle/">
+
+				<!-- Ocultas por CSS solo cuando hay JavaScript: sin él se ven todas. -->
+				<article class="cert-card cert-card--extra" data-cert="assets/images/Laravel.png" data-title="Laravel" data-issuer="Platzi" data-code="b2476d55-c36c-4651-b8d5-7e036a44a6eb" data-verify="https://platzi.com/p/hernan33/curso/2185-course/diploma/detalle/">
+					<div class="cert-card__icon">
+						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+							<polyline points="22 4 12 14.01 9 11.01"></polyline>
+						</svg>
+					</div>
+					<div class="cert-card__content">
+						<h4 class="cert-card__title">Laravel</h4>
+						<span class="cert-card__category">Backend</span>
+						<span class="cert-card__meta">Platzi · oct 2024</span>
+					</div>
+				</article>
+				<article class="cert-card cert-card--extra" data-cert="assets/images/FundamentosJavascript.png" data-title="JavaScript Fundamentos" data-issuer="Platzi" data-code="382094fb-5f91-40ea-8e85-839b838e236a" data-verify="https://platzi.com/p/hernan33/curso/10266-course/diploma/detalle/">
+					<div class="cert-card__icon">
+						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+							<polyline points="22 4 12 14.01 9 11.01"></polyline>
+						</svg>
+					</div>
+					<div class="cert-card__content">
+						<h4 class="cert-card__title">JavaScript</h4>
+						<span class="cert-card__category">Lenguaje</span>
+						<span class="cert-card__meta">Platzi · mar 2025</span>
+					</div>
+				</article>
+				<article class="cert-card cert-card--extra" data-cert="assets/images/ClaudeAi.png" data-title="Claude AI" data-issuer="Platzi" data-code="d44ee910-39e6-4646-972d-62649698723a" data-verify="https://platzi.com/p/hernan33/curso/11408-course/diploma/detalle/">
+					<div class="cert-card__icon">
+						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+							<polyline points="22 4 12 14.01 9 11.01"></polyline>
+						</svg>
+					</div>
+					<div class="cert-card__content">
+						<h4 class="cert-card__title">Claude AI</h4>
+						<span class="cert-card__category">IA</span>
+						<span class="cert-card__meta">Platzi · may 2025</span>
+					</div>
+				</article>
+				<article class="cert-card cert-card--extra" data-cert="assets/images/Windsurf.png" data-title="Windsurf" data-issuer="Platzi" data-code="a35dc5be-66d4-42fe-8293-3a43466581be" data-verify="https://platzi.com/p/hernan33/curso/12298-course/diploma/detalle/">
 					<div class="cert-card__icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -609,7 +645,7 @@
 						<span class="cert-card__meta">Platzi · dic 2025</span>
 					</div>
 				</article>
-				<article class="cert-card" data-cert="assets/images/CertificadoPromptEngineering.png" data-title="Prompt Engineering" data-issuer="Platzi" data-code="645c8bf7-ec16-480e-8755-ee02feb61736" data-verify="https://platzi.com/p/hernan33/curso/12323-course/diploma/detalle/">
+				<article class="cert-card cert-card--extra" data-cert="assets/images/CertificadoPromptEngineering.png" data-title="Prompt Engineering" data-issuer="Platzi" data-code="645c8bf7-ec16-480e-8755-ee02feb61736" data-verify="https://platzi.com/p/hernan33/curso/12323-course/diploma/detalle/">
 					<div class="cert-card__icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -622,7 +658,7 @@
 						<span class="cert-card__meta">Platzi · dic 2025</span>
 					</div>
 				</article>
-				<article class="cert-card" data-cert="assets/images/HerramientasAiParaDevelopers.png" data-title="AI Tools" data-issuer="Platzi" data-code="7cdd3df8-46c4-499b-8b06-79d2749b9820" data-verify="https://platzi.com/p/hernan33/curso/10959-course/diploma/detalle/">
+				<article class="cert-card cert-card--extra" data-cert="assets/images/HerramientasAiParaDevelopers.png" data-title="AI Tools" data-issuer="Platzi" data-code="7cdd3df8-46c4-499b-8b06-79d2749b9820" data-verify="https://platzi.com/p/hernan33/curso/10959-course/diploma/detalle/">
 					<div class="cert-card__icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -635,7 +671,7 @@
 						<span class="cert-card__meta">Platzi · dic 2024</span>
 					</div>
 				</article>
-				<article class="cert-card" data-cert="assets/images/IntroduccionInteligenciaArtificial.png" data-title="Intro IA" data-issuer="Platzi" data-code="46a2ceb2-4ae5-4efa-b253-bd24562864df" data-verify="https://platzi.com/p/hernan33/curso/11157-course/diploma/detalle/">
+				<article class="cert-card cert-card--extra" data-cert="assets/images/IntroduccionInteligenciaArtificial.png" data-title="Intro IA" data-issuer="Platzi" data-code="46a2ceb2-4ae5-4efa-b253-bd24562864df" data-verify="https://platzi.com/p/hernan33/curso/11157-course/diploma/detalle/">
 					<div class="cert-card__icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -648,7 +684,7 @@
 						<span class="cert-card__meta">Platzi · nov 2024</span>
 					</div>
 				</article>
-				<article class="cert-card" data-cert="assets/images/IntroduccionTerminalLineadeComandos.png" data-title="Terminal" data-issuer="Platzi" data-code="f3e58305-4b73-41f3-beb7-a4e506d6bbd8" data-verify="https://platzi.com/p/hernan33/curso/12040-course/diploma/detalle/">
+				<article class="cert-card cert-card--extra" data-cert="assets/images/IntroduccionTerminalLineadeComandos.png" data-title="Terminal" data-issuer="Platzi" data-code="f3e58305-4b73-41f3-beb7-a4e506d6bbd8" data-verify="https://platzi.com/p/hernan33/curso/12040-course/diploma/detalle/">
 					<div class="cert-card__icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -661,7 +697,46 @@
 						<span class="cert-card__meta">Platzi · may 2025</span>
 					</div>
 				</article>
+				<a class="cert-card cert-card--verify cert-card--extra"
+				   href="https://platzi.com/p/hernan33/curso/8850-course/diploma/detalle/"
+				   target="_blank" rel="noopener"
+				   aria-label="Certificado de Taller de Ciberseguridad: verificar en Platzi, se abre en una pestaña nueva"
+				   data-title="Taller Ciberseguridad" data-issuer="Platzi" data-code="00320a60-9f49-433d-86e7-b802cbbdc262" data-verify="https://platzi.com/p/hernan33/curso/8850-course/diploma/detalle/">
+					<div class="cert-card__icon">
+						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+							<polyline points="22 4 12 14.01 9 11.01"></polyline>
+						</svg>
+					</div>
+					<div class="cert-card__content">
+						<h4 class="cert-card__title">Taller Ciberseguridad</h4>
+						<span class="cert-card__category">Seguridad</span>
+						<span class="cert-card__meta">Platzi · abr 2026</span>
+					</div>
+				</a>
+				<a class="cert-card cert-card--verify cert-card--extra"
+				   href="https://platzi.com/p/hernan33/curso/2727-course/diploma/detalle/"
+				   target="_blank" rel="noopener"
+				   aria-label="Certificado de Fundamentos de Web3: verificar en Platzi, se abre en una pestaña nueva"
+				   data-title="Web3" data-issuer="Platzi" data-code="249c56ea-88dc-4155-9a0b-d8ac55ef7cc5" data-verify="https://platzi.com/p/hernan33/curso/2727-course/diploma/detalle/">
+					<div class="cert-card__icon">
+						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+							<polyline points="22 4 12 14.01 9 11.01"></polyline>
+						</svg>
+					</div>
+					<div class="cert-card__content">
+						<h4 class="cert-card__title">Web3</h4>
+						<span class="cert-card__category">Blockchain</span>
+						<span class="cert-card__meta">Platzi · mar 2026</span>
+					</div>
+				</a>
 			</div>
+			<!-- Solo se muestra si hay JavaScript: sin él las tarjetas están
+			     todas visibles y un botón que no hace nada sobraría. El número
+			     lo cuenta el propio JS para que no se desincronice. -->
+			<button type="button" class="certs-toggle" id="certs-toggle"
+			        aria-expanded="false" aria-controls="certs-grid" hidden></button>
 
 			<header class="section__header section__header--sub">
 				<h3 class="section__title section__title--sub">Idiomas</h3>

@@ -52,8 +52,6 @@ TRADUCCIONES = [
     ("Especializado en <strong>Python (Django y FastAPI)</strong>, PostgreSQL\n\t\t\t\t\ty arquitecturas containerizadas. Remoto para LATAM y Europa.",
      "Specialised in <strong>Python (Django and FastAPI)</strong>, PostgreSQL\n\t\t\t\t\tand containerised architectures. Available for remote work across LATAM and Europe."),
     ("Información de contacto", "Contact details"),
-    ('aria-label="Certificado de Fundamentos de Python: verificar en Platzi, se abre en una pestaña nueva"',
-     'aria-label="Python Fundamentals certificate: verify on Platzi, opens in a new tab"'),
     # --- experiencia ---
     ("Experiencia Profesional", "Professional Experience"),
     ("14 años en TI. Entre 2019 y 2023 compaginé el puesto de tiempo completo con trabajo freelance, consultoría y contrato.",
@@ -121,8 +119,28 @@ TRADUCCIONES = [
     ("TSU en Informática", "Associate Degree in Computer Science"),
     ("Desarrollador e-Business", "e-Business Developer"),
     ("Certificaciones", "Certifications"),
-    ("18 certificaciones · más de 215 h de formación continua (2024–2026), todas de Platzi",
-     "18 certifications · over 215 hours of continuous learning (2024–2026), all from Platzi"),
+    # --- certificaciones ---
+    ("21 certificaciones · más de 229 h de formación continua (2023–2026), todas de Platzi",
+     "21 certifications · over 229 hours of continuous learning (2023–2026), all from Platzi"),
+    # aria-label de las tarjetas que enlazan a la verificación: se traducen las
+    # dos partes fijas y el nombre del curso lo cubren las reglas de abajo.
+    ('aria-label="Certificado de ', 'aria-label="Certificate: '),
+    (": verificar en Platzi, se abre en una pestaña nueva\"",
+     " — verify on Platzi, opens in a new tab\""),
+    # Nombres largos primero: "Ciberseguridad Preventiva" antes que
+    # "Ciberseguridad", o quedaría "Cybersecurity Preventiva".
+    ("Administración de Servidores Linux", "Linux Server Administration"),
+    ("Ciberseguridad Preventiva", "Preventive Cybersecurity"),
+    ("Taller de Ciberseguridad", "Cybersecurity Workshop"),
+    ("Fundamentos de Python", "Python Fundamentals"),
+    ("Fundamentos de Web3", "Web3 Fundamentals"),
+    ("Servidores Linux", "Linux Servers"),
+    ("Taller Ciberseguridad", "Cybersecurity Workshop"),
+    ("Ciberseguridad", "Cybersecurity"),
+    ("JavaScript Fundamentos", "JavaScript Fundamentals"),
+    ("Intro IA", "Intro to AI"),
+    ('<span class="cert-card__category">Seguridad</span>',
+     '<span class="cert-card__category">Security</span>'),
     ('<span class="cert-card__category">Base de Datos</span>',
      '<span class="cert-card__category">Database</span>'),
     ('<span class="cert-card__category">Lenguaje</span>',
