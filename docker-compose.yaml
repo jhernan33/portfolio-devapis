@@ -53,6 +53,14 @@ services:
     labels:
       - "traefik.enable=true"
 
+      # Obligatoria porque este servicio está en DOS redes. Traefik elige por
+      # su cuenta una de las IPs del contenedor, y si acierta con la de
+      # `db-internal` —donde él no está— no alcanza el backend: las peticiones
+      # mueren por timeout, sin 502 ni entrada en el log de acceso. Con una
+      # sola red la etiqueta sobra; con dos es lo que separa funcionar de un
+      # fallo silencioso.
+      - "traefik.docker.network=server"
+
       # ------------------------------------------------------------------
       # Router público: solo el endpoint de tracking y el health check.
       #
