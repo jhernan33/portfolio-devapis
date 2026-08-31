@@ -43,7 +43,7 @@ TRADUCCIONES = [
     ('aria-label="Exportar a PDF"', 'aria-label="Export to PDF"'),
     ('aria-label="Cambiar tema"', 'aria-label="Toggle theme"'),
     # conmutador de idioma: en la versión inglesa apunta de vuelta al español
-    ('<a href="/cv/en" class="nav__btn nav__btn--lang" hreflang="en" lang="en" aria-label="Read this CV in English">EN</a>',
+    ('<a href="/cv/en/" class="nav__btn nav__btn--lang" hreflang="en" lang="en" aria-label="Read this CV in English">EN</a>',
      '<a href="/cv" class="nav__btn nav__btn--lang" hreflang="es" lang="es" aria-label="Leer este CV en español">ES</a>'),
     # --- hero ---
     ("Disponible para trabajo remoto", "Open to remote work"),
@@ -179,13 +179,13 @@ def generar(html: str) -> str:
     # Los hreflang ya están en el original y son recíprocos, así que se copian
     # tal cual. Aquí solo cambia la canónica, que sí es propia de cada idioma.
     html = html.replace('<link rel="canonical" href="https://devapis.cloud/cv">',
-                        '<link rel="canonical" href="https://devapis.cloud/cv/en">')
+                        '<link rel="canonical" href="https://devapis.cloud/cv/en/">')
     html = html.replace('<meta property="og:url" content="https://devapis.cloud/cv">',
-                        '<meta property="og:url" content="https://devapis.cloud/cv/en">')
+                        '<meta property="og:url" content="https://devapis.cloud/cv/en/">')
     html = html.replace('<meta property="og:locale" content="es_VE">',
                         '<meta property="og:locale" content="en">\n'
                         '\t<meta property="og:locale:alternate" content="es_VE">')
-    html = html.replace('"url": "https://devapis.cloud/cv"', '"url": "https://devapis.cloud/cv/en"')
+    html = html.replace('"url": "https://devapis.cloud/cv"', '"url": "https://devapis.cloud/cv/en/"')
     html = html.replace('"name": "Español", "alternateName": "es"',
                         '"name": "Spanish", "alternateName": "es"')
     html = html.replace('"name": "Inglés", "alternateName": "en"',
