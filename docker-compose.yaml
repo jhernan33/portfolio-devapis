@@ -35,11 +35,13 @@ services:
     container_name: cv-analytics
     restart: unless-stopped
     environment:
-      - DB_HOST=${DB_HOST:-postgres17}
-      - DB_NAME=${DB_NAME:-postgres}
-      - DB_USER=${DB_USER:-postgres}
-      # Sin valor por defecto a propósito: el backend falla al arrancar si
-      # falta, en lugar de conectarse con credenciales por defecto.
+      # Sin valores por defecto a propósito. Un `DB_HOST` con valor por defecto
+      # apuntó durante meses a un contenedor inexistente y el servicio se pasó
+      # ese tiempo en bucle de reinicio con `gaierror: name resolution`.
+      # Es preferible que `docker compose up` falle a que arranque adivinando.
+      - DB_HOST=${DB_HOST:?DB_HOST es obligatoria, define el nombre del contenedor de PostgreSQL en .env}
+      - DB_NAME=${DB_NAME:?DB_NAME es obligatoria, defínela en .env}
+      - DB_USER=${DB_USER:?DB_USER es obligatoria, defínela en .env}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD es obligatoria, defínela en .env}
       - DB_PORT=${DB_PORT:-5432}
       # Credenciales del dashboard y de la API de consulta.
@@ -53,7 +55,14 @@ services:
 
       # ------------------------------------------------------------------
       # Router público: solo el endpoint de tracking y el health check.
-      # Prioridad alta para que gane frente al router privado.
+      #
+      # Sobre las prioridades: el panel de Traefik publica su propio router
+      # `Host(devapis.cloud) && (PathPrefix(/api) || PathPrefix(/dashboard))`
+      # con su middleware basicauth. Traefik v2 asigna prioridad por longitud
+      # de regla, así que ese router vale 73 y se queda con todo `/api/*` que
+      # no gane explícitamente. Ambos routers de aquí deben superar ese 73,
+      # o el tracking y las estadísticas acaban contra el panel de Traefik
+      # devolviendo `401 realm="traefik"`.
       # ------------------------------------------------------------------
       - "traefik.http.routers.analytics-public.rule=Host(`devapis.cloud`) && (Path(`/api/track`) || Path(`/health`))"
       - "traefik.http.routers.analytics-public.priority=100"
@@ -74,7 +83,9 @@ services:
       # reverse proxy.
       # ------------------------------------------------------------------
       - "traefik.http.routers.analytics-private.rule=Host(`devapis.cloud`) && (PathPrefix(`/api/analytics`) || PathPrefix(`/analytics`))"
-      - "traefik.http.routers.analytics-private.priority=50"
+      # 90: por encima del 73 del panel de Traefik, por debajo del router
+      # público para que `/api/track` nunca caiga aquí.
+      - "traefik.http.routers.analytics-private.priority=90"
       - "traefik.http.routers.analytics-private.entrypoints=https"
       - "traefik.http.routers.analytics-private.tls=true"
       - "traefik.http.routers.analytics-private.tls.certresolver=resolver"
@@ -83,7 +94,11 @@ services:
       # Service binding compartido por ambos routers
       - "traefik.http.services.analytics.loadbalancer.server.port=8000"
     networks:
+      # `server` lo comparte con Traefik; `db-internal`, con PostgreSQL.
+      # El contenedor de la base no está en `server` a propósito, así que sin
+      # esta segunda red el servicio no resuelve `DB_HOST`.
       - server
+      - db-internal
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
@@ -92,5 +107,10 @@ services:
       start_period: 20s
 
 networks:
+  # Ambas deben existir antes de levantar el stack:
+  #   docker network create server
+  # `db-internal` la crea el proyecto que gestiona PostgreSQL.
   server:
+    external: true
+  db-internal:
     external: true

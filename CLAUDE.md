@@ -93,7 +93,7 @@ Single-file FastAPI app. Key points:
 
 - **Connection pool:** one global `asyncpg` pool created in the `lifespan` handler (`min_size=1, max_size=10`), closed on shutdown.
 - **Schema auto-init:** on startup `init_database()` runs the DDL (`CREATE TABLE IF NOT EXISTS`, idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` migrations, indexes, the `cv_analytics_summary` view) and then backfills anonymized IPs for legacy rows. This mirrors `database/init-analytics.sql`. **If you change the schema, update both** `main.py`'s `DDL_SCRIPT` and `database/init-analytics.sql`.
-- **Required config:** `DB_PASSWORD`, `ANALYTICS_USER`, `ANALYTICS_PASSWORD`, `ANALYTICS_IP_SALT` have **no defaults** — `get_settings()` raises and the container refuses to start if any is missing. This is deliberate: the old code silently fell back to `postgres`/`postgres`.
+- **Required config:** `DB_PASSWORD`, `ANALYTICS_USER`, `ANALYTICS_PASSWORD`, `ANALYTICS_IP_SALT` have **no defaults** — `get_settings()` raises and the container refuses to start if any is missing. This is deliberate: the old code silently fell back to `postgres`/`postgres`. `docker-compose.yaml` additionally requires `DB_HOST`, `DB_NAME` and `DB_USER` via `${VAR:?}`, after a defaulted `DB_HOST=postgres17` pointed at a container that did not exist on the host and left the service restart-looping unnoticed.
 - **IP anonymization:** IPs are **never stored in clear text**. `anonymize_ip()` validates the value is a real IP (which also neutralizes injection via the client-controlled `x-forwarded-for` header), then stores `ip_prefix` (truncated /24 IPv4, /48 IPv6) and `ip_hash` (SHA-256 salted with `ANALYTICS_IP_SALT`). Changing the salt breaks unique-visitor continuity.
 - **Visit tracking:** `/api/track` parses browser/OS/device from the User-Agent via a hand-rolled `parse_user_agent()` (no external UA library) and inserts a row. Errors return `{"status":"error"}` without the exception detail.
 - **Dashboard:** built with `createElement`/`textContent`, never `innerHTML` with request-derived data.
@@ -108,13 +108,34 @@ Browser (HTTPS) → Traefik (TLS termination, path routing on devapis.cloud)
     ├─ Path(/api/track) or Path(/health)    → analytics-api  [router analytics-public,
     │                                          priority 100, rate-limited]
     └─ PathPrefix(/api/analytics)           → analytics-api  [router analytics-private,
-       or PathPrefix(/analytics)               priority 50, app-level HTTP Basic]
+       or PathPrefix(/analytics)               priority 90, app-level HTTP Basic]
 ```
 
 The two routers are split so tracking stays public while stats stay private.
-`priority` is set explicitly so the narrower public rule wins.
 
-Both services join the **external `server` Docker network** (must already exist; `docker network create server` if not) and rely on a **PostgreSQL container named `postgres17`** on that same network. Traefik uses cert resolver `resolver` for automatic TLS. Routing labels live in `docker-compose.yaml`; the `/cv` prefix is stripped by the `cv-stripprefix` middleware before reaching Nginx.
+**`priority` is load-bearing, not cosmetic.** Traefik's own dashboard is published
+on the same host by the Traefik container's labels:
+`Host(devapis.cloud) && (PathPrefix(/api) || PathPrefix(/dashboard))`, guarded by a
+`basicauth` middleware. Traefik v2 derives priority from rule length, so that router
+scores **73** and claims every `/api/*` path that nothing outranks. Both routers here
+must therefore stay **above 73** — otherwise requests land on the Traefik dashboard
+and come back as `401` with `WWW-Authenticate: Basic realm="traefik"`. That is exactly
+what silently broke `POST /api/track` for months: the frontend swallows tracking
+errors by design, so nothing surfaced. Public (100) also outranks private (90) so
+`/api/track` never falls through to the private router.
+
+Both services join the external **`server`** network (Traefik). `analytics-api`
+**additionally joins `db-internal`**, because the PostgreSQL container is deliberately
+not on `server`; without that second network the service cannot resolve `DB_HOST` and
+dies at startup with `gaierror: Temporary failure in name resolution`. Create `server`
+with `docker network create server` if missing; `db-internal` belongs to the project
+that owns PostgreSQL.
+
+**`DB_HOST` is a container name, and it is not guessable.** Read it from the host
+rather than from memory or from this file — `docker ps --format '{{.Names}}' | grep -i postgres`
+— and confirm the container shares a network with `analytics-api`. Traefik uses cert
+resolver `resolver` for automatic TLS. Routing labels live in `docker-compose.yaml`;
+the `/cv` prefix is stripped by the `cv-stripprefix` middleware before reaching Nginx.
 
 **Nginx (`nginx.conf`):** only a `server {}` block (global directives were removed — they conflict with `nginx:1.27-alpine` defaults and caused `duplicate directive` startup crashes; keep it that way). SPA fallback (404→index.html), `index.html` no-cache, assets cached 1y immutable, security headers (CSP restricts scripts to `'self'`, so keep JS in external `main.js`), gzip, `.git`/dotfiles blocked.
 
@@ -123,10 +144,10 @@ Both services join the **external `server` Docker network** (must already exist;
 Unlike the pure-static original, the backend **does use secrets**. `.env` (gitignored) supplies DB credentials consumed by `docker-compose.yaml` → the analytics container:
 
 ```
-DB_HOST=postgres17
-DB_NAME=postgres
-DB_USER=postgres
-DB_PASSWORD=...          # required, no default
+DB_HOST=...              # required — the PostgreSQL *container name*, verify with docker ps
+DB_NAME=...              # required
+DB_USER=...              # required — a dedicated role, not the postgres superuser
+DB_PASSWORD=...          # required
 DB_PORT=5432
 ANALYTICS_USER=...       # required — guards the stats endpoints
 ANALYTICS_PASSWORD=...   # required — openssl rand -base64 32
@@ -177,11 +198,15 @@ Place in `src/assets/images/`, reference relatively (`assets/images/x.png`), set
 
 **Traefik routing:** ensure external `server` network exists (`docker network ls`); check `docker logs traefik`; inspect labels with `docker inspect`.
 
-**Backend unhealthy / DB errors:** `/health` returns 503 if the pool can't reach Postgres. Verify the `postgres17` container is up on the `server` network and `.env` credentials are correct; `docker compose logs -f analytics-api`.
+**Backend unhealthy / DB errors:** `/health` returns 503 if the pool can't reach Postgres. Verify the container named in `DB_HOST` is up (`docker ps | grep -i postgres`), that it shares a network with `analytics-api`, and that `.env` credentials are correct; `docker compose logs -f analytics-api`.
+
+**`gaierror: Temporary failure in name resolution` at startup:** `DB_HOST` names a container that either does not exist or shares no Docker network with `analytics-api`. Check both — the name is the more common mistake, the network the more confusing one, because the name resolves fine from the host shell and only fails inside the container.
 
 **Backend refuses to start / `docker compose up` errors on a variable:** a required secret is missing from `.env` (`DB_PASSWORD`, `ANALYTICS_USER`, `ANALYTICS_PASSWORD`, `ANALYTICS_IP_SALT`). This is intended behaviour, not a bug.
 
-**`/api/track` returns 401:** something is applying auth to the whole `/api` prefix — most likely a leftover Traefik `basicauth` middleware defined outside this repo (a `docker-compose.override.yaml` on the server or a Traefik file-provider config). Tracking must stay public; only `/api/analytics*` and `/analytics` are protected.
+**`/api/track` or `/api/analytics` returns 401:** check the response header. `WWW-Authenticate: Basic realm="traefik"` means the request never reached this backend — it hit the **Traefik dashboard's** own router, which publishes `PathPrefix(/api)` on the same host from labels on the Traefik container (`/home/hernan/traefik/docker-compose.yml`, outside this repo). Its priority is 73; raise the router priority here above that rather than editing Traefik. `realm="cv-analytics"` is the opposite situation and means the app answered, so the credentials are simply wrong. Tracking must stay public; only `/api/analytics*` and `/analytics` are protected.
+
+Verify with `curl -sI https://devapis.cloud/api/analytics | grep -i www-authenticate` — the realm tells you which of the two you are talking to.
 
 **Theme not persisting:** check `localStorage` key `cv-color-scheme` (DevTools → Application → Local Storage).
 

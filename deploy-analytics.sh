@@ -35,12 +35,11 @@ if ! docker compose version &> /dev/null; then
     exit 1
 fi
 
-# Verificar que el contenedor postgres17 existe
-if ! docker ps -a | grep -q postgres17; then
-    echo -e "${RED}❌ Contenedor postgres17 no encontrado${NC}"
-    echo "   Asegúrate de que PostgreSQL está corriendo"
-    exit 1
-fi
+# El contenedor de PostgreSQL se comprueba más abajo, una vez cargado .env:
+# hay que contrastar el DB_HOST real, no una cadena fija. La versión anterior
+# hacía `docker ps -a | grep -q postgres17` y daba verde en un host cuyo
+# contenedor se llama `postgres17_qa-db-1` — es decir, aprobaba justo el caso
+# que debía detectar, y el servicio arrancaba a estrellarse en bucle.
 
 # Verificar que la red server existe
 if ! docker network ls | grep -q server; then
@@ -80,7 +79,7 @@ set -a
 set +a
 
 MISSING=""
-for VAR in DB_PASSWORD ANALYTICS_USER ANALYTICS_PASSWORD ANALYTICS_IP_SALT; do
+for VAR in DB_HOST DB_NAME DB_USER DB_PASSWORD ANALYTICS_USER ANALYTICS_PASSWORD ANALYTICS_IP_SALT; do
     if [ -z "${!VAR}" ]; then
         MISSING="$MISSING $VAR"
     fi
@@ -94,10 +93,26 @@ if [ -n "$MISSING" ]; then
     exit 1
 fi
 
-# Valores por defecto para las variables no obligatorias
-DB_HOST="${DB_HOST:-postgres17}"
-DB_NAME="${DB_NAME:-postgres}"
-DB_USER="${DB_USER:-postgres}"
+DB_PORT="${DB_PORT:-5432}"
+
+# El contenedor tiene que existir con ESE nombre exacto. Comparación exacta,
+# no `grep`: una subcadena coincide con contenedores que no son el nuestro.
+if ! docker ps -a --format '{{.Names}}' | grep -qxF "$DB_HOST"; then
+    echo -e "${RED}❌ No existe ningún contenedor llamado exactamente '${DB_HOST}'${NC}"
+    echo "   DB_HOST es el nombre del contenedor de PostgreSQL. Candidatos:"
+    docker ps -a --format '     {{.Names}}  ({{.Status}})' | grep -i postgres || echo "     (ninguno)"
+    exit 1
+fi
+
+# Y tiene que compartir red con analytics-api, o el contenedor no resolverá
+# el nombre por muy correcto que sea.
+DB_NETS=$(docker inspect "$DB_HOST" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}')
+echo "   Redes de ${DB_HOST}: ${DB_NETS}"
+if ! grep -qE 'server|db-internal' <<<"$DB_NETS"; then
+    echo -e "${YELLOW}⚠️  ${DB_HOST} no está en 'server' ni en 'db-internal'.${NC}"
+    echo "   Añade su red a la clave 'networks' de analytics-api en docker-compose.yaml,"
+    echo "   o analytics-api fallará con 'gaierror: name resolution'."
+fi
 
 echo -e "${GREEN}✅ Configuración verificada${NC}"
 echo "   Base de datos: ${DB_USER}@${DB_HOST}/${DB_NAME}"
@@ -106,12 +121,13 @@ echo ""
 # Todas las operaciones psql usan la base y el usuario de .env, no valores
 # fijos: con una base dedicada (database/create-analytics-role.sql) el
 # esquema debe crearse ahí y no en `postgres`.
-PSQL="docker exec -i ${DB_HOST} psql -U ${DB_USER} -d ${DB_NAME}"
+# PGPASSWORD va por entorno para no dejar la contraseña en la lista de procesos.
+PSQL="docker exec -i -e PGPASSWORD=${DB_PASSWORD} ${DB_HOST} psql -U ${DB_USER} -d ${DB_NAME}"
 
 # Comprobar que las credenciales de .env funcionan antes de seguir
 if ! $PSQL -tAc "SELECT 1" >/dev/null 2>&1; then
     echo -e "${RED}❌ No se puede conectar como ${DB_USER} a ${DB_NAME} en ${DB_HOST}${NC}"
-    echo "   Comprueba DB_HOST / DB_NAME / DB_USER en .env y que la base exista."
+    echo "   Comprueba DB_HOST / DB_NAME / DB_USER / DB_PASSWORD en .env y que la base exista."
     exit 1
 fi
 
