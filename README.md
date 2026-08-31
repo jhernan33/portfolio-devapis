@@ -1,5 +1,6 @@
 # CV Portfolio - José Hernán Varela
 
+[![CI](https://github.com/jhernan33/portfolio-devapis/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jhernan33/portfolio-devapis/actions/workflows/ci.yml)
 [![Production](https://img.shields.io/badge/Live-devapis.cloud%2Fcv-0ea5e9)](https://devapis.cloud/cv)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Nginx](https://img.shields.io/badge/Nginx-1.27-009639?logo=nginx&logoColor=white)](https://nginx.org/)
@@ -226,9 +227,32 @@ de estas decisiones, la auditoría de seguridad que las motivó y cómo se verif
 
 ## 🧪 Testing
 
-No hay tests automatizados en el frontend (ver
-[issues abiertos](https://github.com/jhernan33/cv/issues)). La verificación
-manual antes de cada despliegue cubre:
+### Comprobaciones automáticas
+
+Cada push a `main` ejecuta [el workflow de CI](.github/workflows/ci.yml).
+Sus guardas no son buenas prácticas de catálogo: **cada una corresponde a un
+fallo que este repositorio ya tuvo.**
+
+| Guarda | El fallo que evita |
+|---|---|
+| Ningún `-old.*` en `src/` | Tres copias antiguas estuvieron descargables en `/cv/index-old.html` |
+| `.env` no versionado | Lleva la contraseña de la base y la sal de las IPs |
+| Sin datos de contacto directo | El teléfono se retiró del repositorio a propósito |
+| Sin `<script>` inline | La CSP los bloquea; el fallo solo se ve en producción |
+| Rutas de analytics con `Depends(require_analytics_auth)` | El dashboard estuvo protegido solo por el proxy |
+| `ip_address` ni se crea ni se escribe | Las IPs no vuelven a almacenarse en claro |
+| DDL sincronizado entre `main.py` y el SQL | El esquema vive en dos sitios |
+| Prioridades de Traefik por encima de 73 | Por debajo, el tracking cae en el panel de Traefik y devuelve 401 |
+| El compose falla si falta un secreto | Un `DB_HOST` por defecto dejó el servicio meses reiniciándose |
+| Versión en inglés y documentos ATS al día | Se generan desde `src/index.html`; si no, divergen en silencio |
+| Certificaciones con código y URL `https` | Un enlace de verificación roto es peor que ninguno |
+| Presupuesto de peso de la página | Estaba documentado pero nada lo medía |
+
+### Verificación manual
+
+Sigue sin haber tests de extremo a extremo del frontend
+([#11](https://github.com/jhernan33/portfolio-devapis/issues/11)). Antes de
+cada despliegue se comprueba a mano:
 
 - Conmutador de tema (claro/oscuro) y persistencia en `localStorage`
 - Navegación con scroll suave y resaltado de sección activa

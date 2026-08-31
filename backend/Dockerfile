@@ -4,7 +4,7 @@
 FROM python:3.12-slim
 
 LABEL org.opencontainers.image.authors="Jose Hernan Varela"
-LABEL org.opencontainers.image.source="https://github.com/jhernan33/cv"
+LABEL org.opencontainers.image.source="https://github.com/jhernan33/portfolio-devapis"
 LABEL description="CV Analytics API - FastAPI"
 
 # Variables de entorno
