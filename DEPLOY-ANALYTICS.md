@@ -335,16 +335,46 @@ el dashboard.
 
 ### Purgar las IPs históricas
 
-Las instalaciones anteriores a esta versión tienen una columna `ip_address` con
-IPs en claro. Al arrancar, el backend rellena `ip_prefix`/`ip_hash` de esas
-filas automáticamente (paso **no** destructivo). Para eliminar definitivamente
-la columna con los datos personales:
+Las instalaciones anteriores a esta versión guardaban la IP completa en una
+columna `ip_address`. Hay que eliminarla. El procedimiento depende de si
+seguiste en la misma base o migraste a una dedicada.
+
+Haz **siempre** la copia de seguridad primero: los dos caminos son irreversibles.
 
 ```bash
-# Usa los mismos valores que tengas en .env
-set -a; . ./.env; set +a
+set -a; . ./.env; set +a   # DB_HOST, DB_NAME, DB_USER
+```
 
-# 1. Copia de seguridad (irreversible a partir de aquí)
+#### Caso A — Base nueva y dedicada (empezar de cero)
+
+Si migraste a `cv_analytics`, esa base arranca vacía y el histórico se queda
+en la tabla `cv_visits` de la base antigua. Como no se conserva nada, basta
+con eliminar la tabla vieja entera:
+
+```bash
+# 1. Copia de seguridad de la tabla antigua
+docker exec "$DB_HOST" pg_dump -U postgres -d postgres -t cv_visits \
+  > cv_visits_legacy_$(date +%F).sql
+
+# 2. Eliminar la tabla con las IPs en claro (y su vista dependiente)
+docker exec -i "$DB_HOST" psql -U postgres -d postgres \
+  -c "DROP TABLE cv_visits CASCADE;"
+```
+
+`CASCADE` elimina también la vista `cv_analytics_summary` de la base antigua.
+No hace falta ejecutar `migrate-anonymize-ips.sql`: la base nueva ya nace sin
+la columna `ip_address`.
+
+Se pierden los contadores históricos. Si quieres conservarlos como referencia,
+el dump del paso 1 los mantiene.
+
+#### Caso B — Misma base de siempre
+
+El backend rellena `ip_prefix`/`ip_hash` de las filas antiguas al arrancar
+(paso **no** destructivo). Después, para eliminar la columna:
+
+```bash
+# 1. Copia de seguridad
 docker exec "$DB_HOST" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
   > cv_visits_backup_$(date +%F).sql
 
@@ -353,10 +383,8 @@ cat database/migrate-anonymize-ips.sql | \
   docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
 ```
 
-⚠️ Ejecútalo contra la **misma** base que usa el servicio. Si migraste a una
-base dedicada, `-d postgres` apuntaría a la base equivocada.
-
-El script aborta si detecta filas todavía sin anonimizar.
+El script aborta si detecta filas todavía sin anonimizar. Ejecútalo contra la
+**misma** base que usa el servicio.
 
 ## 📞 Soporte
 
