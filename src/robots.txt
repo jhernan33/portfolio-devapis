@@ -1,0 +1,16 @@
+# https://devapis.cloud/robots.txt
+#
+# Servido desde la raíz del dominio, no desde /cv: los rastreadores solo leen
+# /robots.txt en la raíz. La ruta la publica el router `cv-seo` de Traefik
+# (ver docker-compose.yaml), que apunta a este mismo Nginx sin el prefijo /cv.
+
+User-agent: *
+Allow: /cv
+Allow: /cv/
+
+# Endpoints del backend de analytics: nada que indexar.
+Disallow: /api/
+Disallow: /analytics
+Disallow: /health
+
+Sitemap: https://devapis.cloud/sitemap.xml

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  https://devapis.cloud/sitemap.xml
+
+  Una sola URL: el CV es una página única con navegación por anclas, y las
+  anclas no son URLs indexables por separado. Añadir aquí #experiencia o
+  #stack no aportaría nada y sí ensuciaría el informe de Search Console.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+	<url>
+		<loc>https://devapis.cloud/cv</loc>
+		<lastmod>2026-08-31</lastmod>
+		<changefreq>monthly</changefreq>
+		<priority>1.0</priority>
+	</url>
+</urlset>
