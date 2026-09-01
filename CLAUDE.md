@@ -258,7 +258,18 @@ enforces the size and the meta tags in CI, and needs no Pillow.
 
 **`/api/track` or `/api/analytics` returns 401:** check the response header. `WWW-Authenticate: Basic realm="traefik"` means the request never reached this backend — it hit the **Traefik dashboard's** own router, which publishes `PathPrefix(/api)` on the same host from labels on the Traefik container (`/home/hernan/traefik/docker-compose.yml`, outside this repo). Its priority is 73; raise the router priority here above that rather than editing Traefik. `realm="cv-analytics"` is the opposite situation and means the app answered, so the credentials are simply wrong. Tracking must stay public; only `/api/analytics*` and `/analytics` are protected.
 
-Verify with `curl -sI https://devapis.cloud/api/analytics | grep -i www-authenticate` — the realm tells you which of the two you are talking to.
+Verify with a **GET**, capturing the headers:
+
+```bash
+curl -s -o /dev/null -D - https://devapis.cloud/api/analytics | grep -iE '^HTTP|www-authenticate'
+```
+
+The realm tells you which of the two you are talking to. **Do not use `curl -I`
+here.** These routes are declared `GET` only, so a HEAD request answers
+`405 Method Not Allowed` with no `WWW-Authenticate` header at all — which reads
+exactly like "the stats are being served without credentials". The deploy
+workflow's own check had this bug and reported a security alarm that did not
+exist. `curl -I` is fine against `/cv`, which Nginx serves.
 
 **Theme not persisting:** check `localStorage` key `cv-color-scheme` (DevTools → Application → Local Storage).
 

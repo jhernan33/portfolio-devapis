@@ -137,13 +137,25 @@ jobs:
           fi
 
           echo "→ GET /api/analytics (debe estar protegido)"
-          realm=$(curl -sI --max-time 15 https://devapis.cloud/api/analytics \
-                  | grep -i 'www-authenticate' || true)
-          case "$realm" in
-            *cv-analytics*) echo "  OK: responde la aplicación y pide credenciales" ;;
-            *traefik*)      echo "::error::Contesta el panel de Traefik, no el backend."; fallos=1 ;;
-            *)              echo "::error::/api/analytics no pide autenticación: $realm"; fallos=1 ;;
-          esac
+          # GET y no HEAD (`curl -I`): la ruta está declarada solo para GET, así
+          # que a HEAD responde 405 sin cabecera de autenticación, y esta
+          # comprobación lo leía como "las estadísticas están abiertas". Falso
+          # positivo de la peor clase: alarma de seguridad donde no la había.
+          cabeceras=$(curl -s -o /dev/null -D - --max-time 15 \
+                      https://devapis.cloud/api/analytics || true)
+          codigo=$(printf '%s\n' "$cabeceras" | awk 'NR==1 {print $2}')
+          realm=$(printf '%s\n' "$cabeceras" | grep -i 'www-authenticate' || true)
+
+          if [ "$codigo" != "401" ]; then
+            echo "::error::/api/analytics devolvió $codigo en lugar de 401: las estadísticas podrían estar sirviéndose sin credenciales."
+            fallos=1
+          else
+            case "$realm" in
+              *cv-analytics*) echo "  OK: responde la aplicación y pide credenciales" ;;
+              *traefik*)      echo "::error::Contesta el panel de Traefik, no el backend."; fallos=1 ;;
+              *)              echo "::error::401 pero sin realm reconocible: $realm"; fallos=1 ;;
+            esac
+          fi
 
           exit $fallos
 
