@@ -1,0 +1,159 @@
+name: Deploy
+
+# Despliegue a producción: se dispara SOLO si la CI terminó en verde sobre
+# `main`. Esa dependencia es el motivo de usar `workflow_run` en lugar de un
+# `push` propio — con `push` las dos cosas correrían en paralelo y se podría
+# desplegar una rama que la CI está a punto de rechazar.
+#
+# Mientras no existan los secretos del servidor, el job no falla: se salta y lo
+# explica. Un pipeline en rojo permanente se acaba ignorando, y entonces deja
+# de avisar de los fallos que sí importan.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:        # despliegue manual desde la pestaña Actions
+
+permissions:
+  contents: read
+
+# Dos despliegues simultáneos sobre el mismo VPS se pisan a mitad del
+# `docker compose up`. El segundo espera; no se cancela, porque cancelar deja
+# los contenedores a medio recrear.
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    name: Desplegar en el VPS
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: ¿Está configurado el acceso al servidor?
+        id: comprobar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [ -z "$VPS_HOST" ] || [ -z "$VPS_USER" ] || [ -z "$VPS_SSH_KEY" ]; then
+            echo "listo=no" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Despliegue no configurado"
+              echo ""
+              echo "Faltan secretos del repositorio. Para activarlo, en"
+              echo "**Settings → Secrets and variables → Actions**:"
+              echo ""
+              echo "| Secreto | Qué es |"
+              echo "|---|---|"
+              echo '| `VPS_HOST` | IP o dominio del servidor |'
+              echo '| `VPS_USER` | usuario SSH del despliegue |'
+              echo '| `VPS_SSH_KEY` | clave privada **dedicada**, no la personal |'
+              echo '| `VPS_PATH` | ruta del repo en el servidor (opcional, por defecto `~/cv`) |'
+              echo '| `VPS_PORT` | puerto SSH (opcional, por defecto 22) |'
+              echo '| `VPS_KNOWN_HOSTS` | salida de `ssh-keyscan tu-servidor` (opcional pero recomendable) |'
+              echo ""
+              echo "Genera la clave con:"
+              echo '```'
+              echo 'ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/deploy_cv'
+              echo 'ssh-copy-id -i ~/.ssh/deploy_cv.pub usuario@servidor'
+              echo '```'
+              echo "La **privada** (`~/.ssh/deploy_cv`) va en \`VPS_SSH_KEY\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::Despliegue omitido: faltan los secretos del servidor."
+          else
+            echo "listo=si" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Preparar la clave SSH
+        if: steps.comprobar.outputs.listo == 'si'
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+
+          if [ -n "$VPS_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            # Sin `VPS_KNOWN_HOSTS` se acepta la huella que responda en ese
+            # momento. Funciona, pero no protege de un intermediario: define el
+            # secreto con la salida de `ssh-keyscan` y esta rama desaparece.
+            echo "::warning::VPS_KNOWN_HOSTS no está definido; se confía en la huella que responda ahora."
+            ssh-keyscan -p "${VPS_PORT:-22}" "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Actualizar y recrear los servicios
+        if: steps.comprobar.outputs.listo == 'si'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "${VPS_PORT:-22}" \
+              -o BatchMode=yes -o ConnectTimeout=15 \
+              "$VPS_USER@$VPS_HOST" \
+              "set -e
+               cd '${VPS_PATH:-~/cv}'
+               git fetch --prune origin
+               git reset --hard origin/main
+               ./update-production.sh"
+
+      # El despliegue no ha terminado hasta que se comprueba desde fuera. Las
+      # tres verificaciones corresponden a fallos que este proyecto ya tuvo:
+      # el backend caído por DB_HOST, el tracking robado por el panel de
+      # Traefik y las estadísticas quedándose abiertas.
+      - name: Verificar producción
+        if: steps.comprobar.outputs.listo == 'si'
+        run: |
+          fallos=0
+
+          echo "→ /health"
+          if curl -fsS --max-time 15 https://devapis.cloud/health | grep -q '"healthy"'; then
+            echo "  OK"
+          else
+            echo "::error::/health no responde healthy: ¿alcanza el backend a PostgreSQL?"
+            fallos=1
+          fi
+
+          echo "→ POST /api/track (debe ser público)"
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+                   -X POST https://devapis.cloud/api/track)
+          if [ "$codigo" = "200" ]; then
+            echo "  OK"
+          else
+            echo "::error::/api/track devolvió $codigo. Si es 401, el router ha vuelto a caer en el panel de Traefik (revisa las prioridades)."
+            fallos=1
+          fi
+
+          echo "→ GET /api/analytics (debe estar protegido)"
+          realm=$(curl -sI --max-time 15 https://devapis.cloud/api/analytics \
+                  | grep -i 'www-authenticate' || true)
+          case "$realm" in
+            *cv-analytics*) echo "  OK: responde la aplicación y pide credenciales" ;;
+            *traefik*)      echo "::error::Contesta el panel de Traefik, no el backend."; fallos=1 ;;
+            *)              echo "::error::/api/analytics no pide autenticación: $realm"; fallos=1 ;;
+          esac
+
+          exit $fallos
+
+      - name: Resumen
+        if: steps.comprobar.outputs.listo == 'si' && success()
+        run: |
+          {
+            echo "### Desplegado en producción"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- [devapis.cloud/cv](https://devapis.cloud/cv)"
+            echo "- \`/health\`, \`POST /api/track\` y la protección de \`/api/analytics\` verificados."
+          } >> "$GITHUB_STEP_SUMMARY"
