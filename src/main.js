@@ -174,6 +174,136 @@
 	};
 
 	/* ============================================
+	   MOBILE MENU
+	   ============================================ */
+
+	/**
+	 * Despliega la navegación por debajo de 768px.
+	 *
+	 * Ahí la lista de enlaces estaba oculta por CSS y no había nada en su
+	 * lugar: quien entraba desde el móvil solo podía recorrer el CV entero a
+	 * scroll. Dos de las siete visitas externas reales fueron móviles.
+	 */
+	const MobileMenu = {
+		init() {
+			this.nav = document.getElementById('nav');
+			this.btn = document.getElementById('nav-toggle');
+			this.menu = document.getElementById('nav-menu');
+			if (!this.nav || !this.btn || !this.menu) return;
+
+			this.en = document.documentElement.lang === 'en';
+			this.btn.hidden = false;   // a partir de aquí lo gobierna el CSS
+
+			const alternar = (e) => {
+				e.preventDefault();
+				this.toggle();
+			};
+			this.btn.addEventListener('click', alternar);
+			this.btn.addEventListener('touchend', alternar);
+
+			// Al elegir destino el menú sobra: dejarlo abierto tapa el contenido
+			// al que se acaba de saltar.
+			this.menu.querySelectorAll('.nav__link').forEach(enlace => {
+				enlace.addEventListener('click', () => this.cerrar());
+			});
+
+			document.addEventListener('keydown', (e) => {
+				if (e.key === 'Escape' && this.abierto) {
+					this.cerrar();
+					this.btn.focus();
+				}
+			});
+
+			// Tocar fuera cierra: en móvil no hay tecla Escape a mano.
+			document.addEventListener('click', (e) => {
+				if (this.abierto && !this.nav.contains(e.target)) this.cerrar();
+			});
+
+			// Al pasar a escritorio el menú vuelve a su sitio y el estado
+			// abierto dejaría un panel flotante huérfano.
+			window.addEventListener('resize', () => {
+				if (window.innerWidth >= 768 && this.abierto) this.cerrar();
+			});
+		},
+
+		get abierto() {
+			return this.nav.dataset.menuOpen === 'true';
+		},
+
+		toggle() {
+			this.abierto ? this.cerrar() : this.abrir();
+		},
+
+		abrir() {
+			this.nav.dataset.menuOpen = 'true';
+			this.btn.setAttribute('aria-expanded', 'true');
+			this.btn.setAttribute('aria-label', this.en ? 'Close navigation menu' : 'Cerrar menú de navegación');
+		},
+
+		cerrar() {
+			this.nav.dataset.menuOpen = 'false';
+			this.btn.setAttribute('aria-expanded', 'false');
+			this.btn.setAttribute('aria-label', this.en ? 'Open navigation menu' : 'Abrir menú de navegación');
+		}
+	};
+
+	/* ============================================
+	   SCROLL TO TOP
+	   ============================================ */
+
+	/**
+	 * Botón de volver arriba.
+	 *
+	 * Se crea desde JavaScript en lugar de venir en el HTML: sin script no
+	 * tendría a qué recurrir, y creándolo aquí su etiqueta sigue al idioma del
+	 * documento sin duplicarla en las dos versiones del CV.
+	 */
+	const ScrollTop = {
+		UMBRAL: 600,
+
+		init() {
+			const en = document.documentElement.lang === 'en';
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'scroll-top';
+			btn.setAttribute('aria-label', en ? 'Back to top' : 'Volver arriba');
+
+			const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			svg.setAttribute('width', '20');
+			svg.setAttribute('height', '20');
+			svg.setAttribute('viewBox', '0 0 24 24');
+			svg.setAttribute('fill', 'none');
+			svg.setAttribute('stroke', 'currentColor');
+			svg.setAttribute('stroke-width', '2');
+			svg.setAttribute('aria-hidden', 'true');
+			const linea = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+			linea.setAttribute('points', '18 15 12 9 6 15');
+			svg.appendChild(linea);
+			btn.appendChild(svg);
+
+			document.body.appendChild(btn);
+			this.btn = btn;
+
+			btn.addEventListener('click', () => {
+				// Respeta a quien ha pedido menos movimiento en su sistema: un
+				// salto largo con animación puede provocar mareo.
+				const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+				window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+				document.querySelector('.nav__logo')?.focus?.();
+			});
+
+			// passive: el listener no llama a preventDefault, y decírselo al
+			// navegador evita que bloquee el hilo de scroll en cada evento.
+			window.addEventListener('scroll', () => this.actualizar(), { passive: true });
+			this.actualizar();
+		},
+
+		actualizar() {
+			this.btn.classList.toggle('scroll-top--visible', window.scrollY > this.UMBRAL);
+		}
+	};
+
+	/* ============================================
 	   CERTIFICATE MODAL
 	   ============================================ */
 	
@@ -493,6 +623,8 @@
 		SmoothScroll.init();
 		NavHighlight.init();
 		Accessibility.init();
+		MobileMenu.init();
+		ScrollTop.init();
 		CertModal.init();
 		CertsToggle.init();
 		PDFExport.init();

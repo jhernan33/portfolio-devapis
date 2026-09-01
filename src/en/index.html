@@ -70,16 +70,28 @@
 	<a href="#main" class="skip-link">Skip to content</a>
 
 	<!-- ========== NAVEGACIÓN STICKY ========== -->
-	<nav class="nav" role="navigation" aria-label="Main navigation">
+	<nav class="nav" id="nav" data-menu-open="false" role="navigation" aria-label="Main navigation">
 		<div class="nav__container">
 			<a href="#hero" class="nav__logo">JV</a>
-			<ul class="nav__menu">
+			<ul class="nav__menu" id="nav-menu">
 				<li><a href="#experience" class="nav__link">Experience</a></li>
 				<li><a href="#stack" class="nav__link">Stack</a></li>
 				<li><a href="#projects" class="nav__link">Projects</a></li>
 				<li><a href="#education" class="nav__link">Education</a></li>
 			</ul>
 			<div class="nav__actions">
+				<!-- Solo aparece con JavaScript y por debajo de 768px, que es donde
+				     el menú está oculto. Nace `hidden` para no mostrar un botón
+				     que no haría nada si el script falla. -->
+				<button type="button" class="nav__btn nav__btn--menu" id="nav-toggle"
+				        aria-expanded="false" aria-controls="nav-menu"
+				        aria-label="Open navigation menu" hidden>
+					<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<line x1="3" y1="6" x2="21" y2="6"></line>
+						<line x1="3" y1="12" x2="21" y2="12"></line>
+						<line x1="3" y1="18" x2="21" y2="18"></line>
+					</svg>
+				</button>
 				<a href="/cv" class="nav__btn nav__btn--lang" hreflang="es" lang="es" aria-label="Leer este CV en español">ES</a>
 				<button class="nav__btn nav__btn--pdf" id="export-pdf" aria-label="Export to PDF">
 					<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

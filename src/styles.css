@@ -1481,6 +1481,92 @@ strong {
 	color: var(--text-tertiary);
 }
 
+
+/* ── Menú móvil ─────────────────────────────────────────────────────────────
+   Por debajo de 768px la lista de enlaces estaba simplemente oculta: quien
+   entraba desde el móvil no tenía navegación ninguna y solo podía recorrer el
+   CV entero a scroll. Dos de las siete visitas externas reales fueron móviles.
+
+   El botón solo existe si hay JavaScript (nace `hidden` y lo revela main.js),
+   así que sin él nada cambia respecto a antes: no es una regresión, es que la
+   mejora requiere script. */
+.nav__btn--menu {
+	width: 40px;
+	padding: 0;
+}
+
+@media (min-width: 768px) {
+	.nav__btn--menu {
+		display: none;
+	}
+}
+
+@media (max-width: 767px) {
+	.nav[data-menu-open="true"] .nav__menu {
+		display: flex;
+		flex-direction: column;
+		position: absolute;
+		top: var(--nav-height);
+		left: 0;
+		right: 0;
+		gap: 0;
+		padding: var(--space-2);
+		background: var(--bg-primary);
+		border-bottom: 1px solid var(--border-color);
+		box-shadow: var(--shadow-md);
+	}
+
+	.nav[data-menu-open="true"] .nav__link {
+		display: block;
+		padding: var(--space-3) var(--space-4);
+		border-radius: var(--radius-md);
+	}
+}
+
+/* ── Volver arriba ──────────────────────────────────────────────────────────
+   El botón lo crea main.js: sin script no tendría a qué recurrir, y creándolo
+   allí el texto sigue al idioma del documento sin duplicarlo en las dos
+   versiones del CV. */
+.scroll-top {
+	position: fixed;
+	right: var(--space-4);
+	bottom: var(--space-4);
+	z-index: 90;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-full);
+	background: var(--bg-primary);
+	color: var(--color-primary-text);
+	box-shadow: var(--shadow-md);
+	cursor: pointer;
+	opacity: 0;
+	visibility: hidden;
+	transform: translateY(8px);
+	transition: opacity var(--transition-base), transform var(--transition-base), visibility var(--transition-base);
+}
+
+/* 44x44 no es arbitrario: es el objetivo táctil mínimo que recomienda WCAG. */
+.scroll-top--visible {
+	opacity: 1;
+	visibility: visible;
+	transform: translateY(0);
+}
+
+.scroll-top:hover {
+	background: var(--bg-tertiary);
+}
+
+@media print {
+	.scroll-top,
+	.nav__btn--menu {
+		display: none !important;
+	}
+}
+
 /* ============================================
    15. ACCESIBILIDAD
    ============================================ */

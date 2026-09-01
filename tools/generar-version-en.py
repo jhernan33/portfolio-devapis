@@ -42,6 +42,7 @@ TRADUCCIONES = [
     ('aria-label="Navegación principal"', 'aria-label="Main navigation"'),
     ('aria-label="Exportar a PDF"', 'aria-label="Export to PDF"'),
     ('aria-label="Cambiar tema"', 'aria-label="Toggle theme"'),
+    ('aria-label="Abrir menú de navegación"', 'aria-label="Open navigation menu"'),
     # conmutador de idioma: en la versión inglesa apunta de vuelta al español
     ('<a href="/cv/en/" class="nav__btn nav__btn--lang" hreflang="en" lang="en" aria-label="Read this CV in English">EN</a>',
      '<a href="/cv" class="nav__btn nav__btn--lang" hreflang="es" lang="es" aria-label="Leer este CV en español">ES</a>'),
