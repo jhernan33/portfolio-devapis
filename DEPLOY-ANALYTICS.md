@@ -463,6 +463,163 @@ cat database/migrate-anonymize-ips.sql | \
 El script aborta si detecta filas todavía sin anonimizar. Ejecútalo contra la
 **misma** base que usa el servicio.
 
+## ⏮️ Volver atrás (rollback)
+
+Hasta ahora, volver a una versión anterior significaba buscar un SHA a mano
+mientras algo estaba roto. Cada versión desplegada lleva ahora una etiqueta:
+
+```bash
+git tag -n9              # qué es cada versión
+git tag --contains HEAD  # ¿está publicado lo que tengo delante?
+```
+
+**Numeración.** El primer número sube cuando cambia algo que no se puede
+deshacer solo con `git checkout` —el esquema de la base, un secreto
+obligatorio nuevo, el formato de un dato almacenado—; el segundo, cuando se
+añade funcionalidad; el tercero, para correcciones. Dicho de otro modo: **si
+para volver atrás hace falta leer esta sección, es un cambio de versión
+mayor.**
+
+### Etiquetar una versión nueva
+
+Esto solo sirve si se hace **cada vez**. Una etiqueta suelta no da a dónde
+volver; lo que sirve es la anterior:
+
+```bash
+git tag -a v2.1.0 -m "qué cambia y qué hay que saber para volver atrás"
+git push origin v2.1.0
+```
+
+Escribe el mensaje pensando en quien lo lea con algo caído. Si el cambio toca
+la base de datos o `.env`, dilo ahí: es lo primero que se mira.
+
+### Antes de nada: ¿qué está roto?
+
+El rollback del frontend y el del backend son operaciones distintas y con
+riesgos muy distintos. No los mezcles.
+
+| Síntoma | Qué revertir | Riesgo |
+|---|---|---|
+| La página se ve mal, un enlace roto, un texto equivocado | solo `cv` | ninguno |
+| Cabeceras, caché, redirecciones, CSP | `cv` **con reconstrucción** | ninguno |
+| `/api/track` o `/analytics` fallan | solo `analytics-api` | lee lo de abajo |
+| El contenedor no arranca | mira primero `docker compose logs`; casi siempre es `.env`, no el código | — |
+
+### Frontend (`cv`) — segundos, sin riesgo
+
+`src/` está montado como volumen de solo lectura, así que el contenido se
+cambia con un `git checkout` y no hace falta tocar el contenedor:
+
+```bash
+cd ~/cv
+git checkout v2.0.0 -- src/      # solo el sitio
+curl -sI https://devapis.cloud/cv | head -1
+```
+
+Si lo que falla viene de `nginx.conf` —caché, cabeceras, redirecciones— eso
+sí está dentro de la imagen y hay que reconstruir:
+
+```bash
+git checkout v2.0.0 -- nginx.conf
+docker compose build cv
+docker compose up -d --force-recreate cv
+```
+
+**`--force-recreate` no es opcional.** Compose 2.3.3 decide si recrear un
+contenedor comparando su configuración, y el identificador de la imagen no
+entra en esa comparación. Sin la bandera, `up -d` responde `Container landpage
+Running` y deja corriendo la imagen vieja: parece que has desplegado y no has
+desplegado nada.
+
+Cuando termines, vuelve a la rama para no quedarte en *detached HEAD*:
+
+```bash
+git checkout main -- src/ nginx.conf
+```
+
+### Backend (`analytics-api`) — comprueba el esquema primero
+
+```bash
+cd ~/cv
+git checkout v2.0.0
+docker compose build analytics-api
+docker compose up -d --force-recreate analytics-api
+curl -s https://devapis.cloud/health
+```
+
+**El `.env` no se toca nunca en un rollback.** No está versionado, así que
+`git checkout` no lo pisa —bien—, pero tampoco te lo repone si lo has
+editado. Y hay uno que no puede cambiar jamás: `ANALYTICS_IP_SALT`. Si se
+altera, todos los hashes anteriores dejan de corresponder con los nuevos y el
+contador de visitantes únicos empieza a contar doble a la misma persona. No es
+un dato que se pueda recalcular.
+
+### Si el esquema ya migró
+
+El servicio ejecuta su DDL al arrancar. Es aditiva —`CREATE TABLE IF NOT
+EXISTS`, `ADD COLUMN IF NOT EXISTS`—, así que **una versión antigua no revienta
+contra un esquema nuevo**: las columnas que no conoce tienen valor por defecto
+y sus `INSERT` siguen siendo válidos.
+
+Lo que sí cambia en silencio es la **vista**. `cv_analytics_summary` se crea
+con `CREATE OR REPLACE`, así que la versión a la que vuelvas la reescribe con
+*su* definición. Concretamente, cualquier versión anterior al filtrado de
+tráfico interno la deja **sin** `WHERE NOT is_internal`, y las estadísticas
+vuelven a contar tus propias visitas y los health checks del servidor. La
+columna `is_internal` sigue ahí y sigue rellenándose; lo único que se pierde
+es el filtro. Volver adelante lo restaura solo, sin tocar datos.
+
+Comprobarlo en un segundo:
+
+```bash
+docker exec -e PGPASSWORD="$DB_PASSWORD" "$DB_HOST" \
+  psql -U "$DB_USER" -d "$DB_NAME" -tAc \
+  "SELECT pg_get_viewdef('cv_analytics_summary', true);" | grep -c is_internal
+# 1 = la vista filtra · 0 = está contando tráfico propio
+```
+
+### El punto sin retorno
+
+**La anonimización de IPs no se puede deshacer, y ya está hecha.** La columna
+`ip_address` ya no existe en producción; lo que queda es el prefijo truncado y
+un hash con sal, y de un hash no se recupera la IP. Consecuencia práctica:
+
+> **Ninguna versión anterior a la anonimización se puede desplegar.** Su código
+> hace `INSERT` sobre `ip_address` y fallaría con *column does not exist*. El
+> límite inferior real del rollback es la primera etiqueta con IPs anonimizadas,
+> no el primer commit del repositorio.
+
+Antes de cualquier operación que toque la base, la copia:
+
+```bash
+docker exec "$DB_HOST" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
+  > cv_visits_backup_$(date +%F).sql
+```
+
+### Copias de seguridad de `src/assets/images/`
+
+Los diplomas **no se pueden regenerar**: los emite Platzi y las imágenes
+descargadas son el único original que hay. No los trates como un artefacto de
+construcción.
+
+Dónde está cada cosa:
+
+| Qué | Dónde | ¿Sobrevive a perder el portátil? |
+|---|---|---|
+| Diplomas en WebP (lo que sirve el sitio) | `src/assets/images/*.webp`, versionados | sí, están en GitHub |
+| PNG originales | historial de git, hasta el commit anterior a la conversión | sí, están en GitHub |
+| PNG originales, copia de trabajo | `.backups/certificados-png/` | **no**, está en `.gitignore` |
+
+Recuperar un PNG original del historial:
+
+```bash
+git show 20f87cb^:src/assets/images/Django.png > Django.png
+```
+
+Y si algún día hay que reconstruirlo todo desde cero, el enlace público de
+verificación de cada certificado está en su atributo `data-verify` dentro de
+`src/index.html`: desde ahí se vuelven a descargar los diplomas de Platzi.
+
 ## 📞 Soporte
 
 Si tienes problemas:
