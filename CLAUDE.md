@@ -168,6 +168,7 @@ Spanish (`lang="es"`), semantic HTML5, ARIA labels, BEM class names.
 ### CSS (`src/styles.css`)
 - BEM naming (`.block__element--modifier`).
 - CSS custom properties only — no hardcoded colors. Define token in `:root`, override under `[data-theme="dark"]`.
+- **Use `--color-primary-text` for text and focus rings, never `--color-primary`.** The brand blue `#0ea5e9` scores 2.53–2.77:1 against the light backgrounds, well under the 4.5:1 WCAG AA needs for body text (and under 3:1 for focus indicators). `--color-primary-text` resolves to sky-700 `#0369a1` in light and stays `#0ea5e9` in dark, where the original already clears 6.44:1. `--color-primary` remains correct for decorative borders and fills. When white text sits on a brand-coloured background, use `--color-primary-strong`/`--color-primary-stronger`.
 - Mobile-first: base styles for mobile, `@media (min-width: ...)` for larger. Breakpoints: 380px, 640px, 768px, 1024px.
 
 ### JavaScript (`src/main.js`)

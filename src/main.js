@@ -191,17 +191,31 @@
 			// Event listeners para abrir modal (cert-card en lugar de cert-thumb)
 			document.querySelectorAll('.cert-card').forEach(card => {
 				card.addEventListener('click', () => this.open(card));
+
+				// Las tarjetas con diploma son <article>, que no entra en el
+				// orden de tabulación ni se activa con Enter. Sin esto, el
+				// modal era inalcanzable sin ratón. Las que son <a> ya lo
+				// hacen solas, así que se excluyen.
+				if (card.tagName === 'A' || !card.dataset.cert) return;
+				card.tabIndex = 0;
+				card.setAttribute('role', 'button');
+				card.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						this.open(card);
+					}
+				});
 			});
 			
 			// Event listeners para cerrar modal
 			this.closeBtn?.addEventListener('click', () => this.close());
 			this.overlay?.addEventListener('click', () => this.close());
 			
-			// Cerrar con Escape
 			document.addEventListener('keydown', (e) => {
 				if (e.key === 'Escape' && !this.modal.hidden) {
 					this.close();
 				}
+				this.trapFocus(e);
 			});
 		},
 		
@@ -222,9 +236,42 @@
 			this.modalTitle.textContent = certTitle;
 			this.renderMeta(card, en);
 
+			// Se recuerda quién abrió el modal para devolverle el foco al
+			// cerrarlo. Sin esto, quien navega con teclado o lector de pantalla
+			// termina al principio del documento y tiene que recorrer la página
+			// entera para volver a la tarjeta que estaba mirando.
+			this.origen = document.activeElement;
+
 			this.modal.hidden = false;
 			document.body.style.overflow = 'hidden';
 			this.closeBtn?.focus();
+		},
+
+		/**
+		 * Mantiene el tabulador dentro del modal mientras está abierto.
+		 *
+		 * Un diálogo modal que deja escapar el foco a la página de detrás es
+		 * confuso para cualquiera y directamente inutilizable con lector de
+		 * pantalla: se anuncia contenido que visualmente está tapado.
+		 */
+		trapFocus(e) {
+			if (e.key !== 'Tab' || this.modal.hidden) return;
+
+			const focusables = this.modal.querySelectorAll(
+				'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			);
+			if (!focusables.length) return;
+
+			const primero = focusables[0];
+			const ultimo = focusables[focusables.length - 1];
+
+			if (e.shiftKey && document.activeElement === primero) {
+				e.preventDefault();
+				ultimo.focus();
+			} else if (!e.shiftKey && document.activeElement === ultimo) {
+				e.preventDefault();
+				primero.focus();
+			}
 		},
 
 		/**
@@ -269,6 +316,9 @@
 		close() {
 			this.modal.hidden = true;
 			document.body.style.overflow = '';
+			// Devolver el foco a la tarjeta desde la que se abrió.
+			this.origen?.focus?.();
+			this.origen = null;
 		}
 	};
 
