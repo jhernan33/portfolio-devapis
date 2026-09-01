@@ -238,7 +238,15 @@ jobs:
       - name: Sintaxis y dependencias
         run: |
           python -m compileall -q backend/main.py
-          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt
+
+      # Los tests no necesitan PostgreSQL: el pool se sustituye por un doble en
+      # memoria (backend/tests/conftest.py). Una suite que exige levantar un
+      # contenedor acaba sin ejecutarse, y una suite que no se ejecuta no
+      # protege nada.
+      - name: Tests
+        working-directory: backend
+        run: python -m pytest
 
       # Estas dos reglas están escritas en CLAUDE.md y son fáciles de romper.
       - name: Toda ruta de datos de visitas exige autenticación
