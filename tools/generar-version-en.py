@@ -30,10 +30,10 @@ DESTINO = RAIZ / "src" / "en" / "index.html"
 # traducirse antes que "Experiencia", o quedaría "Experience Profesional".
 TRADUCCIONES = [
     # --- cabecera y metadatos ---
-    ("Senior Backend Developer. 14 años en TI, 7 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
-     "Senior Backend Developer. 14 years in IT, 7 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
-    ("14 años en TI, 7 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
-     "14 years in IT, 7 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
+    ("Senior Backend Developer. 14 años en TI, 5 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
+     "Senior Backend Developer. 14 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
+    ("14 años en TI, 5 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
+     "14 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
     # --- navegación ---
     ("Saltar al contenido", "Skip to content"),
     (">Experiencia<", ">Experience<"),
@@ -48,8 +48,8 @@ TRADUCCIONES = [
      '<a href="/cv" class="nav__btn nav__btn--lang" hreflang="es" lang="es" aria-label="Leer este CV en español">ES</a>'),
     # --- hero ---
     ("Disponible para trabajo remoto", "Open to remote work"),
-    ("<strong>14 años en TI, 7 construyendo APIs.</strong>",
-     "<strong>14 years in IT, 7 building APIs.</strong>"),
+    ("<strong>14 años en TI, 5 construyendo APIs.</strong>",
+     "<strong>14 years in IT, 5 building APIs.</strong>"),
     ("Especializado en <strong>Python (Django y FastAPI)</strong>, PostgreSQL\n\t\t\t\t\ty arquitecturas containerizadas. Remoto para LATAM y Europa.",
      "Specialised in <strong>Python (Django and FastAPI)</strong>, PostgreSQL\n\t\t\t\t\tand containerised architectures. Available for remote work across LATAM and Europe."),
     ("Información de contacto", "Contact details"),
@@ -240,9 +240,9 @@ def generar(html: str) -> str:
     html = html.replace("assets/images/og-cover.png", "assets/images/og-cover-en.png")
     html = html.replace(
         'content="José Hernán Varela, Senior Backend Developer. 14 años en TI, '
-        '7 construyendo APIs. Python, Django, FastAPI, PostgreSQL y Docker."',
+        '5 construyendo APIs. Python, Django, FastAPI, PostgreSQL y Docker."',
         'content="José Hernán Varela, Senior Backend Developer. 14 years in IT, '
-        '7 building APIs. Python, Django, FastAPI, PostgreSQL and Docker."')
+        '5 building APIs. Python, Django, FastAPI, PostgreSQL and Docker."')
     html = html.replace('"url": "https://devapis.cloud/cv"', '"url": "https://devapis.cloud/cv/en/"')
     html = html.replace('"name": "Español", "alternateName": "es"',
                         '"name": "Spanish", "alternateName": "es"')
