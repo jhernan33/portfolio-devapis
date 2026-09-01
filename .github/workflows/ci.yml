@@ -181,6 +181,29 @@ jobs:
           echo "src/documentos: ${KB} KB"
           [ "$KB" -lt 500 ] || { echo "::error::Documentos demasiado pesados: ${KB} KB"; exit 1; }
 
+      # Al convertir los diplomas a WebP dejaron de casar con la regla de caché
+      # de nginx, que listaba png pero no webp, y pasaron a servirse con
+      # no-cache: se redescargaban en cada apertura del modal, anulando el
+      # ahorro y sin dar ningún error. Esto vigila que no vuelva a pasar con
+      # el siguiente formato que se añada.
+      - name: Nginx cachea todas las extensiones que hay en src/assets
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+          conf = pathlib.Path("nginx.conf").read_text(encoding="utf-8")
+          m = re.search(r'location ~\* \\\.\(([^)]+)\)\$', conf)
+          if not m:
+              sys.exit("::error::No encuentro la regla de caché de assets en nginx.conf")
+          cubiertas = set(m.group(1).split("|"))
+          presentes = {p.suffix.lstrip(".").lower()
+                       for p in pathlib.Path("src/assets").rglob("*") if p.is_file()}
+          fuera = sorted(presentes - cubiertas)
+          if fuera:
+              sys.exit(f"::error::Extensiones en src/assets sin regla de caché: {fuera}. "
+                       f"Añádelas al location ~* de nginx.conf")
+          print("Extensiones cubiertas:", sorted(presentes))
+          PY
+
       # Los diplomas no lastran la carga inicial —solo se piden al abrir el
       # modal— pero en PNG pesaban 2,1 MB y bastaba con arrastrar uno nuevo
       # sin convertir para volver ahí. El presupuesto lo impide.
