@@ -181,6 +181,17 @@ jobs:
           echo "src/documentos: ${KB} KB"
           [ "$KB" -lt 500 ] || { echo "::error::Documentos demasiado pesados: ${KB} KB"; exit 1; }
 
+      # Los diplomas no lastran la carga inicial —solo se piden al abrir el
+      # modal— pero en PNG pesaban 2,1 MB y bastaba con arrastrar uno nuevo
+      # sin convertir para volver ahí. El presupuesto lo impide.
+      - name: Las imágenes siguen siendo ligeras (< 1 MB)
+        run: |
+          KB=$(du -sb src/assets/images | awk '{print int($1/1024)}')
+          echo "src/assets/images: ${KB} KB"
+          [ "$KB" -lt 1024 ] || {
+            echo "::error::Imágenes demasiado pesadas: ${KB} KB. ¿Un PNG sin convertir a WebP?"
+            exit 1; }
+
       - name: Toda imagen de src/assets está referenciada
         run: |
           fallo=0

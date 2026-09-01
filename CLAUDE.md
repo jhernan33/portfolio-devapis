@@ -186,7 +186,14 @@ Spanish (`lang="es"`), semantic HTML5, ARIA labels, BEM class names.
 - Never return `str(e)` to the client; log it and return a generic message.
 
 ### Images
-Place in `src/assets/images/`, reference relatively (`assets/images/x.png`), set explicit `width`/`height`, descriptive `alt`.
+Place in `src/assets/images/`, reference relatively (`assets/images/x.webp`), set explicit `width`/`height`, descriptive `alt`.
+
+The **certificate diplomas are WebP**, quality 85. They are the heaviest thing
+the site can serve — as PNG the 14 of them were 2.1 MB, now 451 KB — and they
+are text, so the conversion was checked at 200% zoom against the originals:
+even the UUID line is indistinguishable (RMSE 0.42%). The PNG originals are in
+`.backups/certificados-png/` (gitignored), not in `src/`. There is no PNG
+fallback on purpose: see the browser-support note below.
 
 The two **Open Graph covers** are the exception on both counts: `og-cover.png`
 (ES) and `og-cover-en.png` (EN) are **generated** by `tools/generar-og.py` — edit
@@ -202,6 +209,12 @@ enforces the size and the meta tags in CI, and needs no Pillow.
 - **`-old.*` backups** now live in `.backups/` (gitignored and untracked), not in `src/`. They used to sit in `src/` where Nginx served them publicly at `/cv/index-old.html`. Keep them out of `src/`: anything in that directory is published. Edit the live `index.html` / `styles.css` / `main.js`.
 - **Frontend volumes** are mounted read-only in production; changes require the file to be present in `src/`.
 - **Browser support:** ES6+, CSS Grid/Flexbox, Intersection Observer required; no IE11.
+  WebP raises the floor a little: the certificate images are WebP-only, with no
+  `<picture>` fallback, because the modal sets `img.src` from `data-cert` in JS
+  and a fallback would mean shipping both formats — which is the entire weight
+  saving. That takes the Safari floor from 12.1 (Intersection Observer) to 14
+  (Sept 2020). Everything else in the stack is older than that, so WebP is what
+  sets the minimum; if a diploma ever renders blank, this is why.
 - **Performance budget:** keep total frontend page size well under 200KB (currently ~76KB); CSS/JS unminified is acceptable at this size.
 
 ## Troubleshooting
