@@ -19,7 +19,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar código
-COPY main.py .
+#
+# La migración va en la imagen a propósito: se ejecuta con
+# `docker compose exec analytics-api python /app/migrar_user_agents.py`, y
+# tenerla dentro evita el `docker cp` a mano justo cuando hay que tocar datos
+# de producción. No se ejecuta sola: es un script, no parte del arranque.
+COPY main.py migrar_user_agents.py ./
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \

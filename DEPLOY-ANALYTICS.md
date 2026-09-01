@@ -463,6 +463,37 @@ cat database/migrate-anonymize-ips.sql | \
 El script aborta si detecta filas todavía sin anonimizar. Ejecútalo contra la
 **misma** base que usa el servicio.
 
+### Corregir el navegador y el sistema de las visitas antiguas
+
+`parse_user_agent` tenía mal el orden de sus comprobaciones: Opera se
+registraba como Chrome, Android como Linux e iOS como macOS. Ninguna visita
+desde un móvil se guardó nunca con su sistema real.
+
+El arreglo solo afecta a las visitas nuevas, pero las antiguas se pueden
+recuperar: `user_agent` conserva la cadena completa, así que basta con volver a
+derivar las tres columnas a partir de ella. Ejecútalo **después** de desplegar
+el backend corregido.
+
+```bash
+set -a; . ./.env; set +a
+
+# 1. Copia de seguridad (rápida, la migración es acotada pero escribe)
+docker exec "$DB_HOST" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
+  > cv_visits_backup_$(date +%F).sql
+
+# 2. Simulacro: enseña qué cambiaría y no escribe nada
+docker compose exec analytics-api python /app/migrar_user_agents.py
+
+# 3. Aplicar
+docker compose exec analytics-api python /app/migrar_user_agents.py --aplicar
+```
+
+Sin `--aplicar` no escribe: una operación sobre datos de producción no debe
+ocurrir por inercia. Es idempotente —recalcular es determinista— así que una
+segunda ejecución informa de que no hay nada que corregir. Solo toca `browser`,
+`os` y `device_type`; no lee ni escribe nada relacionado con IPs, y las filas
+sin `user_agent` se dejan como están en lugar de sobrescribirlas con `Unknown`.
+
 ## ⏮️ Volver atrás (rollback)
 
 Hasta ahora, volver a una versión anterior significaba buscar un SHA a mano
