@@ -531,20 +531,43 @@ entra en esa comparación. Sin la bandera, `up -d` responde `Container landpage
 Running` y deja corriendo la imagen vieja: parece que has desplegado y no has
 desplegado nada.
 
-Cuando termines, vuelve a la rama para no quedarte en *detached HEAD*:
+Para deshacer el rollback, **el orden importa y no es el evidente**:
 
 ```bash
-git checkout main -- src/ nginx.conf
+cd ~/cv
+git reset -- src/ nginx.conf          # 1. sacarlos del índice
+git checkout main -- src/ nginx.conf  # 2. contenido de main
+git clean -fd src/                    # 3. borrar lo que main ya no tiene
+git status --short                    # debe salir vacío
+```
+
+`git checkout main -- src/` **no basta**. Devuelve a su estado los ficheros que
+existen en `main`, pero no borra los que trajo la versión antigua y `main` ya no
+tiene. Volviendo a antes de la conversión a WebP, por ejemplo, deja los 14 PNG
+en `src/` — y `src/` es lo que Nginx publica entero, que es exactamente cómo tres
+copias `-old.*` acabaron descargables en su día.
+
+Y `git clean` tampoco basta por su cuenta: un `checkout` desde otro commit deja
+esos ficheros **en el índice**, y `clean` solo borra lo que no está seguido. De
+ahí que el `reset` vaya primero.
+
+Si en el servidor no hay nada local que conservar —lo normal—, esto hace lo
+mismo de un tirón y sin margen de error:
+
+```bash
+git reset --hard origin/main
 ```
 
 ### Backend (`analytics-api`) — comprueba el esquema primero
 
 ```bash
 cd ~/cv
-git checkout v2.0.0
+git checkout v2.0.0        # completo, no por rutas: aquí git sí borra lo que sobra
 docker compose build analytics-api
 docker compose up -d --force-recreate analytics-api
 curl -s https://devapis.cloud/health
+
+git checkout main          # para no quedarse en detached HEAD
 ```
 
 **El `.env` no se toca nunca en un rollback.** No está versionado, así que
