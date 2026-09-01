@@ -188,6 +188,15 @@ Spanish (`lang="es"`), semantic HTML5, ARIA labels, BEM class names.
 ### Images
 Place in `src/assets/images/`, reference relatively (`assets/images/x.png`), set explicit `width`/`height`, descriptive `alt`.
 
+The two **Open Graph covers** are the exception on both counts: `og-cover.png`
+(ES) and `og-cover-en.png` (EN) are **generated** by `tools/generar-og.py` — edit
+the script, not the PNGs — and are referenced by **absolute** URL
+(`https://devapis.cloud/cv/assets/images/...`) because the LinkedIn, WhatsApp and
+X crawlers read the `<head>` without loading the page and resolve neither
+relative paths nor `<base>`. They are 1200×630 (the 1.91:1 that
+`twitter:card=summary_large_image` requires); `tools/generar-og.py --check`
+enforces the size and the meta tags in CI, and needs no Pillow.
+
 ## Important Constraints
 
 - **`-old.*` backups** now live in `.backups/` (gitignored and untracked), not in `src/`. They used to sit in `src/` where Nginx served them publicly at `/cv/index-old.html`. Keep them out of `src/`: anything in that directory is published. Edit the live `index.html` / `styles.css` / `main.js`.

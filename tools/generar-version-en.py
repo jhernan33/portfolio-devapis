@@ -233,6 +233,16 @@ def generar(html: str) -> str:
     html = html.replace('<meta property="og:locale" content="es_VE">',
                         '<meta property="og:locale" content="en">\n'
                         '\t<meta property="og:locale:alternate" content="es_VE">')
+
+    # La tarjeta de previsualización lleva texto dentro de la imagen, así que
+    # cada idioma tiene la suya. Se sustituyen aquí y no en TRADUCCIONES
+    # porque son URL y atributos, no texto visible de la página.
+    html = html.replace("assets/images/og-cover.png", "assets/images/og-cover-en.png")
+    html = html.replace(
+        'content="José Hernán Varela, Senior Backend Developer. 14 años en TI, '
+        '7 construyendo APIs. Python, Django, FastAPI, PostgreSQL y Docker."',
+        'content="José Hernán Varela, Senior Backend Developer. 14 years in IT, '
+        '7 building APIs. Python, Django, FastAPI, PostgreSQL and Docker."')
     html = html.replace('"url": "https://devapis.cloud/cv"', '"url": "https://devapis.cloud/cv/en/"')
     html = html.replace('"name": "Español", "alternateName": "es"',
                         '"name": "Spanish", "alternateName": "es"')

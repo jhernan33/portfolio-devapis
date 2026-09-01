@@ -125,6 +125,12 @@ jobs:
           python3 tools/generar-cv-ats.py --check
           python3 tools/generar-cv-ats.py --en --check
 
+      # La tarjeta de previsualización es lo único del sitio que un reclutador
+      # ve sin visitarlo. Si la imagen desaparece o cambia de medidas, LinkedIn
+      # deja de dibujar la tarjeta y no hay forma de enterarse desde aquí.
+      - name: La imagen de Open Graph existe y está bien declarada
+        run: python3 tools/generar-og.py --check
+
       - name: Las dos versiones tienen la misma estructura
         run: |
           python3 - <<'PY'
@@ -180,7 +186,7 @@ jobs:
           fallo=0
           for f in src/assets/images/*; do
             n=$(basename "$f")
-            grep -qF -- "$n" src/index.html src/styles.css src/main.js || {
+            grep -qF -- "$n" src/index.html src/en/index.html src/styles.css src/main.js || {
               echo "::warning::Imagen huérfana: $n"; fallo=1; }
           done
           exit $fallo
