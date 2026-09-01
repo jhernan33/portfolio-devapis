@@ -449,34 +449,50 @@ app.add_middleware(
 
 
 def parse_user_agent(ua_string: str) -> dict:
-    """Parse básico de user agent (sin librería externa)."""
+    """
+    Parse básico de user agent (sin librería externa).
+
+    Lo delicado aquí no son las palabras que se buscan, sino EL ORDEN en que se
+    buscan: una misma cadena contiene varias pistas a la vez y gana la primera
+    que se mira. Las tres reglas que hay debajo estuvieron mal ordenadas y
+    falseaban la estadística en silencio (lo destapó backend/tests):
+
+    - Opera y Edge se anuncian además como `Chrome/…`, así que van antes.
+    - Android declara `Linux` en la cadena: comprobar Linux primero hacía que
+      NINGÚN Android se registrara nunca como Android.
+    - iPhone y iPad declaran `like Mac OS X`: comprobar Mac primero contaba
+      todo el tráfico de iOS como escritorio macOS.
+
+    El tipo de dispositivo se deduce aparte y sí acertaba, de modo que el panel
+    venía diciendo "Mobile" y "macOS" en la misma visita sin que chirriara.
+    """
     ua_lower = ua_string.lower()
 
-    # Detectar navegador
+    # Detectar navegador (del más específico al más genérico)
     if "edg" in ua_lower:
         browser = "Edge"
-    elif "chrome" in ua_lower and "edg" not in ua_lower:
+    elif "opr" in ua_lower or "opera" in ua_lower:
+        browser = "Opera"
+    elif "chrome" in ua_lower:
         browser = "Chrome"
     elif "firefox" in ua_lower:
         browser = "Firefox"
-    elif "safari" in ua_lower and "chrome" not in ua_lower:
+    elif "safari" in ua_lower:
         browser = "Safari"
-    elif "opera" in ua_lower or "opr" in ua_lower:
-        browser = "Opera"
     else:
         browser = "Unknown"
 
-    # Detectar OS
+    # Detectar OS (los móviles antes que los de escritorio a los que imitan)
     if "windows" in ua_lower:
         os_name = "Windows"
+    elif "android" in ua_lower:
+        os_name = "Android"
+    elif "iphone" in ua_lower or "ipad" in ua_lower or "ipod" in ua_lower:
+        os_name = "iOS"
     elif "mac" in ua_lower or "darwin" in ua_lower:
         os_name = "macOS"
     elif "linux" in ua_lower:
         os_name = "Linux"
-    elif "android" in ua_lower:
-        os_name = "Android"
-    elif "iphone" in ua_lower or "ipad" in ua_lower:
-        os_name = "iOS"
     else:
         os_name = "Unknown"
 
