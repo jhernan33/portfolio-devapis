@@ -30,10 +30,10 @@ DESTINO = RAIZ / "src" / "en" / "index.html"
 # traducirse antes que "Experiencia", o quedaría "Experience Profesional".
 TRADUCCIONES = [
     # --- cabecera y metadatos ---
-    ("Senior Backend Developer. 14 años en TI, 5 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
-     "Senior Backend Developer. 14 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
-    ("14 años en TI, 5 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
-     "14 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
+    ("Senior Backend Developer. 15 años en TI, 5 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
+     "Senior Backend Developer. 15 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
+    ("15 años en TI, 5 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
+     "15 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
     # --- navegación ---
     ("Saltar al contenido", "Skip to content"),
     (">Experiencia<", ">Experience<"),
@@ -48,15 +48,15 @@ TRADUCCIONES = [
      '<a href="/cv" class="nav__btn nav__btn--lang" hreflang="es" lang="es" aria-label="Leer este CV en español">ES</a>'),
     # --- hero ---
     ("Disponible para trabajo remoto", "Open to remote work"),
-    ("<strong>14 años en TI, 5 construyendo APIs.</strong>",
-     "<strong>14 years in IT, 5 building APIs.</strong>"),
+    ("<strong>15 años en TI, 5 construyendo APIs.</strong>",
+     "<strong>15 years in IT, 5 building APIs.</strong>"),
     ("Especializado en <strong>Python (Django y FastAPI)</strong>, PostgreSQL\n\t\t\t\t\ty arquitecturas containerizadas. Remoto para LATAM y Europa.",
      "Specialised in <strong>Python (Django and FastAPI)</strong>, PostgreSQL\n\t\t\t\t\tand containerised architectures. Available for remote work across LATAM and Europe."),
     ("Información de contacto", "Contact details"),
     # --- experiencia ---
     ("Experiencia Profesional", "Professional Experience"),
-    ("14 años en TI. Entre 2019 y 2023 compaginé el puesto de tiempo completo con trabajo freelance, consultoría y contrato.",
-     "14 years in IT. Between 2019 and 2023 I combined my full-time role with freelance, consulting and contract work."),
+    ("15 años en TI. Entre 2019 y 2023 compaginé el puesto de tiempo completo con trabajo freelance, consultoría y contrato.",
+     "15 years in IT. Between 2019 and 2023 I combined my full-time role with freelance, consulting and contract work."),
     ("Jefe de Informática", "IT Manager"),
     ("Lidero el departamento de TI y la infraestructura tecnológica completa",
      "I lead the IT department and the full technology infrastructure"),
@@ -238,11 +238,20 @@ def generar(html: str) -> str:
     # cada idioma tiene la suya. Se sustituyen aquí y no en TRADUCCIONES
     # porque son URL y atributos, no texto visible de la página.
     html = html.replace("assets/images/og-cover.png", "assets/images/og-cover-en.png")
-    html = html.replace(
-        'content="José Hernán Varela, Senior Backend Developer. 14 años en TI, '
-        '5 construyendo APIs. Python, Django, FastAPI, PostgreSQL y Docker."',
-        'content="José Hernán Varela, Senior Backend Developer. 14 years in IT, '
-        '5 building APIs. Python, Django, FastAPI, PostgreSQL and Docker."')
+    # Con `replace` a secas, cambiar una cifra en index.html dejaba este texto
+    # sin traducir y la página inglesa se publicaba con el alt en español, sin
+    # que nada lo dijera. Pasó al corregir los años de experiencia. Ahora se
+    # comprueba que la frase de origen exista antes de sustituirla.
+    alt_es = ('content="José Hernán Varela, Senior Backend Developer. 15 años en TI, '
+              '5 construyendo APIs. Python, Django, FastAPI, PostgreSQL y Docker."')
+    alt_en = ('content="José Hernán Varela, Senior Backend Developer. 15 years in IT, '
+              '5 building APIs. Python, Django, FastAPI, PostgreSQL and Docker."')
+    if alt_es not in html:
+        sys.exit("El texto alternativo de la portada Open Graph cambió en "
+                 "src/index.html y ya no coincide con el de este script.\n"
+                 f"  Se esperaba: {alt_es}\n"
+                 "  Actualiza `alt_es` y `alt_en` en tools/generar-version-en.py.")
+    html = html.replace(alt_es, alt_en)
     html = html.replace('"url": "https://devapis.cloud/cv"', '"url": "https://devapis.cloud/cv/en/"')
     html = html.replace('"name": "Español", "alternateName": "es"',
                         '"name": "Spanish", "alternateName": "es"')

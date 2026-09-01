@@ -46,7 +46,7 @@ ES = {
     ],
     "resumen_titulo": "PERFIL PROFESIONAL",
     "resumen": (
-        "Senior Backend Developer con 14 años en tecnologías de la información, "
+        "Senior Backend Developer con 15 años en tecnologías de la información, "
         "5 de ellos construyendo APIs con Python. Trabajo tanto el backend como la "
         "infraestructura donde corre: servidores Linux, contenedores, proxy inverso "
         "y bases de datos. Disponible para trabajo remoto con equipos de "
@@ -182,7 +182,7 @@ EN = {
     ],
     "resumen_titulo": "PROFESSIONAL SUMMARY",
     "resumen": (
-        "Senior Backend Developer with 14 years in IT, 5 of them building APIs with "
+        "Senior Backend Developer with 15 years in IT, 5 of them building APIs with "
         "Python. I work across both the backend and the infrastructure it runs on: "
         "Linux servers, containers, reverse proxy and databases. Available for remote "
         "work with teams in Latin America, the United States and Europe."

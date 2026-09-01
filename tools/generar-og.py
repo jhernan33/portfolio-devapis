@@ -67,7 +67,7 @@ ES = {
     "eyebrow": "DEVAPIS.CLOUD/CV",
     "nombre": "José Hernán Varela",
     "titular": "Senior Backend Developer",
-    "resumen": "14 años en TI · 5 construyendo APIs",
+    "resumen": "15 años en TI · 5 construyendo APIs",
     "chips": ["Python", "Django", "FastAPI", "PostgreSQL", "Docker"],
 }
 
@@ -76,7 +76,7 @@ EN = {
     "eyebrow": "DEVAPIS.CLOUD/CV/EN",
     "nombre": "José Hernán Varela",
     "titular": "Senior Backend Developer",
-    "resumen": "14 years in IT · 5 building APIs",
+    "resumen": "15 years in IT · 5 building APIs",
     "chips": ["Python", "Django", "FastAPI", "PostgreSQL", "Docker"],
 }
 
