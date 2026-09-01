@@ -34,3 +34,11 @@ Thumbs.db
 
 # Configuración local de Claude Code (contiene rutas absolutas de la máquina)
 .claude/settings.local.json
+
+# Capturas de pantalla sueltas en la raíz. Van y vienen para enseñar algo
+# puntual y no son parte del proyecto; dashboard.png se coló así dentro de un
+# commit de documentación. Anclado a la raíz a propósito: las imágenes del
+# sitio viven en src/assets/images/ y esas sí se versionan.
+/*.png
+/*.jpg
+/*.jpeg
