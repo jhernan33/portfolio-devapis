@@ -115,6 +115,8 @@ TRADUCCIONES = [
      "IP addresses are never stored: only the truncated network and a salted hash"),
     ("Autenticación en la aplicación, no en el proxy, para que viaje con el código",
      "Authentication lives in the application, not the proxy, so it ships with the code"),
+    ("Tests con pytest y despliegue automático: cada push verifica que ninguna IP se guarde en claro y que las estadísticas sigan protegidas",
+     "pytest suite and automated deployment: every push verifies that no IP is stored in clear text and that the stats endpoints stay protected"),
     ("Código y decisiones técnicas en GitHub", "Source code and technical decisions on GitHub"),
     # --- educación y certificaciones ---
     ("TSU en Informática", "Associate Degree in Computer Science"),

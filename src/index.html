@@ -126,12 +126,11 @@
 	<!-- ========== HERO SECTION ========== -->
 	<header id="hero" class="hero">
 		<div class="hero__container">
-			<!-- Avatar: reemplaza src con tu foto profesional -->
+			<!-- Iniciales en lugar de fotografía, a propósito: en los procesos de
+			     selección europeos el CV con foto es la excepción, y varias guías
+			     de contratación piden explícitamente que no la lleve. -->
 			<div class="hero__avatar">
 				<div class="avatar">
-					<!-- Opción 1: Foto real (recomendado) -->
-					<!-- <img src="./avatar.jpg" alt="José Hernán Varela" class="avatar__img"> -->
-					<!-- Opción 2: Iniciales como placeholder -->
 					<span class="avatar__initials">JV</span>
 				</div>
 			</div>
@@ -451,6 +450,7 @@
 						<li>Sitio estático sin dependencias servido por Nginx, con analítica propia en FastAPI</li>
 						<li>Las IPs no se almacenan: se guardan la red truncada y un hash con sal</li>
 						<li>Autenticación en la aplicación, no en el proxy, para que viaje con el código</li>
+						<li>Tests con pytest y despliegue automático: cada push verifica que ninguna IP se guarde en claro y que las estadísticas sigan protegidas</li>
 						<li><a href="https://github.com/jhernan33/portfolio-devapis" target="_blank" rel="noopener">Código y decisiones técnicas en GitHub</a></li>
 					</ul>
 				</article>
