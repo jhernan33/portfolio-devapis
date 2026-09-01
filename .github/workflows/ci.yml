@@ -344,23 +344,59 @@ jobs:
           fi
           echo "Falla rápido, como debe"
 
-      # Ambos routers tienen que superar el 73 del panel de Traefik, que
-      # publica PathPrefix(/api) en el mismo host. Por debajo, el tracking y
-      # las estadísticas acaban devolviendo 401 realm="traefik".
-      - name: Prioridades de Traefik por encima del panel
+      # El panel de Traefik publica Host(devapis.cloud) && (PathPrefix(/api) ||
+      # PathPrefix(/dashboard)) desde las etiquetas de su propio contenedor,
+      # fuera de este repositorio. Traefik v2 deriva la prioridad de la
+      # longitud de la regla, así que ese router vale 73 y se queda con todo
+      # /api/* que no lo supere: eso tuvo el tracking de visitas roto durante
+      # meses sin que se notara, porque el frontend se traga esos errores.
+      #
+      # No basta con comprobar los dos routers de hoy. Lo que hace falta es
+      # que NINGUNA ruta futura bajo /api o /dashboard se despliegue sin
+      # prioridad explícita, que es la forma en que volvería a pasar.
+      - name: Toda ruta bajo /api declara prioridad por encima del panel
         run: |
           python3 - <<'PY'
-          import re, pathlib, sys
-          s = pathlib.Path("docker-compose.yaml").read_text(encoding="utf-8")
-          for router in ("analytics-public", "analytics-private"):
-              m = re.search(rf'routers\.{router}\.priority=(\d+)', s)
-              if not m:
-                  sys.exit(f"::error::{router} no declara priority")
-              p = int(m.group(1))
-              if p <= 73:
-                  sys.exit(f"::error::{router} tiene priority {p}; el panel de "
-                           f"Traefik vale 73 y le ganaría")
-              print(f"{router}: {p} > 73 OK")
+          import pathlib, re, sys, yaml
+
+          PANEL = 73          # longitud de la regla del panel de Traefik
+          RECLAMADOS = ("/api", "/dashboard")
+
+          compose = yaml.safe_load(pathlib.Path("docker-compose.yaml").read_text(encoding="utf-8"))
+          fallos, revisados = [], 0
+
+          for servicio, cfg in compose.get("services", {}).items():
+              etiquetas = cfg.get("labels") or []
+              reglas, prioridades = {}, {}
+              for e in etiquetas:
+                  if m := re.match(r"traefik\.http\.routers\.([^.]+)\.rule=(.*)", e, re.S):
+                      reglas[m.group(1)] = m.group(2)
+                  elif m := re.match(r"traefik\.http\.routers\.([^.]+)\.priority=(\d+)$", e):
+                      prioridades[m.group(1)] = int(m.group(2))
+
+              for router, regla in sorted(reglas.items()):
+                  # Solo importan los routers que compiten con el panel: uno que
+                  # sirva /cv no se cruza con él y no necesita prioridad.
+                  rutas = re.findall(r"Path(?:Prefix)?\(`([^`]+)`\)", regla)
+                  if not any(r == c or r.startswith(c + "/") for r in rutas for c in RECLAMADOS):
+                      continue
+                  revisados += 1
+                  p = prioridades.get(router)
+                  if p is None:
+                      fallos.append(f"{servicio}/{router} sirve {rutas} y no declara priority; "
+                                    f"caería en el panel de Traefik con 401 realm=\"traefik\"")
+                  elif p <= PANEL:
+                      fallos.append(f"{servicio}/{router} tiene priority {p}, "
+                                    f"y el panel de Traefik vale {PANEL}")
+                  else:
+                      print(f"OK  {servicio}/{router}: priority {p} > {PANEL}  {rutas}")
+
+          if not revisados:
+              sys.exit("::error::Ningún router reclama /api ni /dashboard. "
+                       "¿Se renombraron las rutas? Revisa esta guarda antes de darla por buena")
+          if fallos:
+              sys.exit("::error::" + " · ".join(fallos))
+          print(f"{revisados} routers bajo {RECLAMADOS} con prioridad suficiente")
           PY
 
       - name: Construir la imagen del backend
