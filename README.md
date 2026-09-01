@@ -391,7 +391,7 @@ Este proyecto es privado y de uso personal.
 **José Hernán Varela**
 - Portafolio: [devapis.cloud/cv](https://devapis.cloud/cv)
 - GitHub: [@jhernan33](https://github.com/jhernan33)
-- LinkedIn: [jhernan-13465028](https://www.linkedin.com/in/jhernan-13465028)
+- LinkedIn: [jhernanvarela](https://www.linkedin.com/in/jhernanvarela)
 - Email: jhernan33@gmail.com
 - Ubicación: Táchira, Venezuela
 

@@ -42,7 +42,7 @@ ES = {
     "titular": "Senior Backend Developer",
     "contacto": [
         "jhernan33@gmail.com | Táchira, Venezuela | UTC-4 | Disponible para trabajo totalmente remoto",
-        "https://devapis.cloud/cv | https://github.com/jhernan33 | https://www.linkedin.com/in/jhernan-13465028",
+        "https://devapis.cloud/cv | https://github.com/jhernan33 | https://www.linkedin.com/in/jhernanvarela",
     ],
     "resumen_titulo": "PERFIL PROFESIONAL",
     "resumen": (
@@ -178,7 +178,7 @@ EN = {
     "titular": "Senior Backend Developer",
     "contacto": [
         "jhernan33@gmail.com | Táchira, Venezuela | UTC-4 | Available for fully remote work",
-        "https://devapis.cloud/cv/en/ | https://github.com/jhernan33 | https://www.linkedin.com/in/jhernan-13465028",
+        "https://devapis.cloud/cv/en/ | https://github.com/jhernan33 | https://www.linkedin.com/in/jhernanvarela",
     ],
     "resumen_titulo": "PROFESSIONAL SUMMARY",
     "resumen": (
