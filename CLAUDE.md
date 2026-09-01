@@ -63,9 +63,36 @@ docker compose down
 ```
 
 ### Testing
-No automated tests. Manual checklist:
-- **Frontend:** theme toggle (light/dark), smooth-scroll nav, certificate modal (click any cert card), PDF export button, responsive layouts, keyboard/screen-reader accessibility.
-- **Backend:** `curl https://devapis.cloud/health`, `curl -X POST https://devapis.cloud/api/track`, `curl https://devapis.cloud/api/analytics`.
+
+**Backend — automated** (`backend/tests/`, run by CI in the `backend` job):
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+No PostgreSQL required: `conftest.py` replaces the pool with an in-memory double
+and `ASGITransport` skips the `lifespan`, so each test injects the `SETTINGS` and
+`DB_POOL` it needs. A suite that requires a container is a suite that stops being
+run. Cover, in order of importance: `anonymize_ip`/`is_internal_ip` (nothing but a
+truncated prefix and a salted hash ever reaches the DB, `X-Forwarded-For`
+injection is neutralized), the auth matrix (every `/api/analytics*` and
+`/analytics` route answers 401 without credentials and 503 when unconfigured),
+and `parse_user_agent` ordering.
+
+**`parse_user_agent` ordering is load-bearing and tested for that reason.** Every
+UA string carries several clues at once and the first branch wins: Opera and Edge
+also announce `Chrome/`, Android declares `Linux`, and iPhone/iPad declare
+`like Mac OS X`. Those three were mis-ordered and silently mislabelled every
+Opera, Android and iOS visit ever recorded — while `device_type`, computed
+separately, correctly said `Mobile`. Add new browsers/OSes most-specific-first
+and add a test.
+
+**Frontend — manual checklist:** theme toggle (light/dark), smooth-scroll nav,
+certificate modal (click any cert card), PDF export button, responsive layouts,
+keyboard/screen-reader accessibility. Structural regressions (ES/EN sync, ATS
+docs, OG image, page-weight budget, no inline JS) are covered by CI guards.
 
 ## Architecture
 

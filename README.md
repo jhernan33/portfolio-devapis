@@ -227,6 +227,39 @@ de estas decisiones, la auditoría de seguridad que las motivó y cómo se verif
 
 ## 🧪 Testing
 
+### Tests del backend
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+**No hace falta PostgreSQL.** El pool se sustituye por un doble en memoria y
+`ASGITransport` entra al enrutado sin ejecutar el arranque, así que cada test
+inyecta la configuración que necesita. Es deliberado: una suite que exige
+levantar un contenedor termina por no ejecutarse, y una suite que no se ejecuta
+no protege nada.
+
+Qué cubren, por orden de importancia:
+
+| Área | Qué se comprueba |
+|---|---|
+| Anonimización | La IP completa no aparece en ningún valor que llegue a la base; una `X-Forwarded-For` falseada con basura o SQL no se propaga; cambiar la sal rompe la continuidad (por eso no se rota) |
+| Tráfico propio | Rangos privados, la IP pública del propio servidor vía `ANALYTICS_IGNORE_NETWORKS`, y "ante la duda, interno" |
+| Autenticación | Toda ruta de estadísticas responde 401 sin credenciales y 503 si no hay credenciales configuradas; el `realm` distingue si contestó la aplicación o el panel de Traefik |
+| Arranque | Falta un secreto obligatorio → el servicio se niega a arrancar, nombrando cuál |
+| User-Agent | El orden de las comprobaciones (ver abajo) |
+
+**Estos tests encontraron tres fallos reales el día que se escribieron.** Cada
+cadena de User-Agent contiene varias pistas a la vez y gana la primera que se
+mira: Opera y Edge se anuncian además como `Chrome/`, Android declara `Linux` e
+iPhone/iPad declaran `like Mac OS X`. Con el orden anterior, **ninguna visita
+desde Android o iOS se registró jamás como tal** — se contaban como Linux y
+macOS— mientras el tipo de dispositivo, que se deduce aparte, sí decía `Mobile`.
+Un panel que se contradice a sí mismo sin que salte ningún error es justo lo que
+un test unitario detecta y una revisión a ojo no.
+
 ### Comprobaciones automáticas
 
 Cada push a `main` ejecuta [el workflow de CI](.github/workflows/ci.yml).
@@ -247,6 +280,19 @@ fallo que este repositorio ya tuvo.**
 | Versión en inglés y documentos ATS al día | Se generan desde `src/index.html`; si no, divergen en silencio |
 | Certificaciones con código y URL `https` | Un enlace de verificación roto es peor que ninguno |
 | Presupuesto de peso de la página | Estaba documentado pero nada lo medía |
+| `pytest` del backend | Los invariantes de arriba, ejecutándose de verdad |
+
+### Despliegue
+
+[`deploy.yml`](.github/workflows/deploy.yml) se dispara **solo si la CI terminó
+en verde sobre `main`**, actualiza el servidor por SSH y después verifica desde
+fuera las tres cosas que este proyecto ya vio romperse: que `/health` responda,
+que `POST /api/track` siga siendo público (un 401 ahí significa que el router ha
+vuelto a caer en el panel de Traefik) y que `/api/analytics` siga pidiendo
+credenciales *de la aplicación* y no del proxy.
+
+Mientras no existan los secretos del servidor, el job se salta y explica cuáles
+faltan, en lugar de fallar: un pipeline en rojo permanente se acaba ignorando.
 
 ### Verificación manual
 

@@ -115,8 +115,15 @@ Una decisión defensiva razonable había ocultado un fallo total del sistema.
 
 ```
 Path(/api/track) o Path(/health)              → público, con rate limit   [prioridad 100]
-PathPrefix(/api/analytics) o /analytics       → autenticado               [prioridad  50]
+PathPrefix(/api/analytics) o /analytics       → autenticado               [prioridad  90]
 ```
+
+Los dos números tienen que estar **por encima de 73**, que es lo que puntúa el
+router del panel de Traefik: v2 deriva la prioridad de la longitud de la regla,
+así que el panel reclama todo `/api/*` que no lo supere. Y el público por encima
+del privado, para que `/api/track` no caiga nunca en el autenticado. Una guarda
+de la CI comprueba que ninguna ruta futura bajo `/api` se despliegue sin
+prioridad explícita.
 
 **Principio:** fallar en silencio es correcto de cara al usuario y peligroso de
 cara al operador. Un fallo silencioso necesita, en alguna parte, un contador
@@ -207,13 +214,50 @@ ocurrir como efecto secundario de un despliegue.
 
 ---
 
-## 5. Próximos pasos
+## 5. Tests: tres fallos que nadie había visto (septiembre 2026)
 
-- **Tests automatizados** con pytest sobre la anonimización, la autenticación y
-  la validación de entrada. Hoy la verificación de la sección 4 es reproducible
-  pero manual.
-- **CI/CD** con GitHub Actions: lint, build de la imagen y despliegue.
-- **Aviso de privacidad** visible en el sitio, describiendo lo de la sección 2.
+La verificación de la sección 4 era reproducible pero manual, así que lo primero
+que quedaba pendiente era automatizarla. La suite vive en `backend/tests` y no
+necesita PostgreSQL: el pool se sustituye por un doble en memoria y
+`ASGITransport` entra al enrutado sin ejecutar el arranque. Es deliberado — una
+suite que exige levantar un contenedor termina por no ejecutarse.
+
+Lo interesante es que **siete pruebas fallaron a la primera, y no por culpa de
+las pruebas.**
+
+El parseo de User-Agent se hace a mano, sin librería externa, para no añadir una
+dependencia por una estadística. El riesgo de hacerlo a mano no está en las
+palabras que se buscan, sino en el **orden** en que se buscan: cada cadena
+contiene varias pistas a la vez y gana la primera que se mira.
+
+| Lo que dice la cadena | Lo que se registraba | Lo que era |
+|---|---|---|
+| Opera lleva `Chrome/…` además de `OPR/` | Chrome | Opera |
+| Android declara `Linux;` | Linux | Android |
+| iPhone y iPad declaran `like Mac OS X` | macOS | iOS |
+
+Es decir: **ninguna visita desde un móvil Android o iOS se había registrado nunca
+como tal**, desde el primer día del sistema.
+
+Lo que lo hacía invisible es que el tipo de dispositivo se deduce por separado,
+con otra lista de palabras, y ese sí acertaba. El panel llevaba meses mostrando
+`Mobile` y `macOS` en la misma fila sin que la contradicción saltara a la vista.
+
+**Principio, y es el mismo de la sección 3.2:** no fue un fallo de lógica
+compleja, fue un orden de `elif`. Ningún error, ninguna excepción, ningún log.
+Los fallos que no producen error son los que sobreviven años, y la única
+herramienta que los encuentra barato es la que ejerce el código con casos
+concretos.
+
+## 6. Próximos pasos
+
+- **Despliegue automático**: `deploy.yml` ya actualiza el VPS cuando la CI pasa
+  en `main` y verifica el resultado desde fuera; queda configurar los secretos
+  del servidor para activarlo.
+- **Tests de extremo a extremo del frontend**, que siguen sin existir.
+
+El aviso de privacidad que figuraba aquí ya está en el pie del sitio, en las dos
+versiones de idioma.
 
 ---
 
