@@ -67,13 +67,14 @@ BORRADORES = RAIZ / ".borradores"
 # son los mismos: "0,29 s" en español es "0.29 s" en inglés, y publicar el
 # formato equivocado delata que el documento está traducido a medias.
 METRICAS = {
+    # PCVARELAVENEZUELA no aparece aquí a propósito. Se valoró cuantificar los
+    # sistemas internos, el tamaño de la base y los tiempos de despliegue de ese
+    # puesto, y la decisión fue dejar esas tres viñetas en cualitativo: no hay
+    # medición que defender. Es la regla del perfil canónico —"si no puedes
+    # explicar cómo lo mediste en 20 segundos frente a un entrevistador, se
+    # reescribe en cualitativo"— y una cifra que no se sostiene en entrevista
+    # hace más daño que su ausencia.
     "es": {
-        # --- PCVARELAVENEZUELA · pendientes de medir ---
-        "sistemas_produccion": None,   # sistemas internos vivos en producción
-        "tamano_bd": None,             # tamaño de la base que administra
-        "despliegue_antes": None,      # duración del despliegue manual
-        "despliegue_despues": None,    # duración tras contenerizar
-
         # --- Delzam · medido sobre el sistema, endpoint por endpoint ---
         # De la tabla de medición: la ruta más pesada pasó de más de 9.000
         # consultas y 62 s a una sola consulta y 0,29 s. Se publica esa, no el
@@ -90,10 +91,6 @@ METRICAS = {
         "despliegue_propio": "18 s",
     },
     "en": {
-        "sistemas_produccion": None,
-        "tamano_bd": None,
-        "despliegue_antes": None,
-        "despliegue_despues": None,
         "consultas_antes": "over 9,000 queries and 62 s",
         "consultas_despues": "a single query and 0.29 s",
         "microservicios": "3",
@@ -165,30 +162,11 @@ ES = {
                 # exactamente lo que se busca.
                 "Único responsable del departamento de TI y de la infraestructura tecnológica"
                 " completa: desarrollo, servidores, bases de datos y despliegue.",
-                {
-                    "base": "Desarrollo sistemas internos con Python y Django que automatizan"
-                            " procesos antes manuales.",
-                    "cuantificada": "Desarrollo y mantengo {sistemas_produccion} sistemas internos"
-                                    " en producción con Python y Django, que automatizan procesos"
-                                    " antes manuales.",
-                    "metricas": ["sistemas_produccion"],
-                },
-                {
-                    "base": "Administro la infraestructura Linux que sostiene la operación en"
-                            " producción.",
-                    "cuantificada": "Administro la infraestructura Linux que sostiene la operación"
-                                    " en producción, con bases de datos PostgreSQL de {tamano_bd},"
-                                    " operada de forma ininterrumpida desde {anio_infra}.",
-                    "metricas": ["tamano_bd", "anio_infra"],
-                },
-                {
-                    "base": "Implanté despliegues contenerizados y reproducibles con Docker, en"
-                            " sustitución del despliegue manual.",
-                    "cuantificada": "Reduje el tiempo de despliegue de {despliegue_antes} a"
-                                    " {despliegue_despues} implantando despliegues contenerizados"
-                                    " y reproducibles con Docker, en sustitución del proceso manual.",
-                    "metricas": ["despliegue_antes", "despliegue_despues"],
-                },
+                "Desarrollo sistemas internos con Python y Django que automatizan procesos"
+                " antes manuales.",
+                "Administro la infraestructura Linux que sostiene la operación en producción.",
+                "Implanté despliegues contenerizados y reproducibles con Docker, en sustitución"
+                " del despliegue manual.",
             ],
             "stack": "Python, Django, PostgreSQL, Docker, Linux, Traefik, Nginx",
         },
@@ -361,30 +339,11 @@ EN = {
             "puntos": [
                 "Sole owner of the IT department and the full technology infrastructure:"
                 " development, servers, databases and deployment.",
-                {
-                    "base": "I build internal systems in Python and Django that automate"
-                            " previously manual processes.",
-                    "cuantificada": "I build and maintain {sistemas_produccion} internal systems"
-                                    " in production with Python and Django, automating previously"
-                                    " manual processes.",
-                    "metricas": ["sistemas_produccion"],
-                },
-                {
-                    "base": "I administer the Linux infrastructure that keeps production running.",
-                    "cuantificada": "I administer the Linux infrastructure that keeps production"
-                                    " running, with PostgreSQL databases of {tamano_bd}, operated"
-                                    " without interruption since {anio_infra}.",
-                    "metricas": ["tamano_bd", "anio_infra"],
-                },
-                {
-                    "base": "I introduced containerised, reproducible deployments with Docker,"
-                            " replacing the manual process.",
-                    "cuantificada": "I cut deployment time from {despliegue_antes} to"
-                                    " {despliegue_despues} by introducing containerised,"
-                                    " reproducible deployments with Docker, replacing the manual"
-                                    " process.",
-                    "metricas": ["despliegue_antes", "despliegue_despues"],
-                },
+                "I build internal systems in Python and Django that automate previously manual"
+                " processes.",
+                "I administer the Linux infrastructure that keeps production running.",
+                "I introduced containerised, reproducible deployments with Docker, replacing the"
+                " manual process.",
             ],
             "stack": "Python, Django, PostgreSQL, Docker, Linux, Traefik, Nginx",
         },
@@ -717,6 +676,8 @@ def main() -> None:
             for clave in pendientes:
                 print(f"    · {clave}")
             print("  Rellénalas ahí y vuelve a ejecutar sin --marcadores para publicar.")
+        else:
+            print("\n  No hay métricas pendientes: este borrador es idéntico al publicado.")
         return
 
     docx = SALIDA / f"{nombre}.docx"
