@@ -1,7 +1,7 @@
 # Backend Analytics - Dockerfile
 # FastAPI + uvicorn para tracking de visitas
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 LABEL org.opencontainers.image.authors="Jose Hernan Varela"
 LABEL org.opencontainers.image.source="https://github.com/jhernan33/portfolio-devapis"
