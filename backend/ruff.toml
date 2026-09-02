@@ -1,0 +1,31 @@
+# Reglas de estilo del backend. Se ejecutan en la CI y con `make lint`.
+#
+# Clean code sin herramienta que lo vigile se erosiona: el criterio se acaba
+# discutiendo en cada revisión en lugar de estar escrito una vez aquí.
+
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv"]
+
+[lint]
+# E/W  errores y avisos de pycodestyle
+# F    pyflakes: imports sin usar, nombres indefinidos
+# I    orden de los imports
+# B    bugbear: trampas reales (mutables por defecto, except desnudo…)
+# UP   modernización de sintaxis
+# RUF  reglas propias de ruff
+select = ["E", "W", "F", "I", "B", "UP", "RUF"]
+
+[lint.flake8-bugbear]
+# `Depends(...)`, `Query(...)` y `Security(...)` en el valor por defecto de un
+# parámetro es LA forma de declarar dependencias en FastAPI, no el descuido de
+# usar un mutable compartido que B008 persigue.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Security"]
+
+[lint.per-file-ignores]
+# Los tests importan `conftest` por nombre y usan asserts largos y explícitos.
+"tests/*" = ["E501"]
+
+[format]
+# El código ya está escrito con comillas dobles y sangría de 4.
+quote-style = "double"

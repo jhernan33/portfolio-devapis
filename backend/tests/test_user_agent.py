@@ -6,10 +6,10 @@ estadística. El riesgo de hacerlo a mano es el ORDEN de las comprobaciones:
 casi todas las cadenas contienen varias pistas a la vez y gana la primera que
 se mira. Estos tests fijan ese orden.
 """
+
 import pytest
 
 from app.useragent import parse_user_agent
-
 
 # Cadenas reales, no inventadas: son las que sirven de referencia.
 CHROME_ESCRITORIO = (
@@ -45,15 +45,19 @@ LINUX_ESCRITORIO = (
 # Navegador
 # ============================================================
 
-@pytest.mark.parametrize("ua, esperado", [
-    (CHROME_ESCRITORIO, "Chrome"),
-    (EDGE, "Edge"),
-    (OPERA, "Opera"),
-    (FIREFOX, "Firefox"),
-    (SAFARI_MAC, "Safari"),
-    ("curl/8.4.0", "Unknown"),
-    ("", "Unknown"),
-])
+
+@pytest.mark.parametrize(
+    "ua, esperado",
+    [
+        (CHROME_ESCRITORIO, "Chrome"),
+        (EDGE, "Edge"),
+        (OPERA, "Opera"),
+        (FIREFOX, "Firefox"),
+        (SAFARI_MAC, "Safari"),
+        ("curl/8.4.0", "Unknown"),
+        ("", "Unknown"),
+    ],
+)
 def test_navegador(ua, esperado):
     assert parse_user_agent(ua)["browser"] == esperado
 
@@ -74,16 +78,20 @@ def test_opera_no_se_confunde_con_chrome():
 # Sistema operativo
 # ============================================================
 
-@pytest.mark.parametrize("ua, esperado", [
-    (CHROME_ESCRITORIO, "Windows"),
-    (SAFARI_MAC, "macOS"),
-    (LINUX_ESCRITORIO, "Linux"),
-    (FIREFOX, "Linux"),
-    (ANDROID, "Android"),
-    (IPHONE, "iOS"),
-    (IPAD, "iOS"),
-    ("curl/8.4.0", "Unknown"),
-])
+
+@pytest.mark.parametrize(
+    "ua, esperado",
+    [
+        (CHROME_ESCRITORIO, "Windows"),
+        (SAFARI_MAC, "macOS"),
+        (LINUX_ESCRITORIO, "Linux"),
+        (FIREFOX, "Linux"),
+        (ANDROID, "Android"),
+        (IPHONE, "iOS"),
+        (IPAD, "iOS"),
+        ("curl/8.4.0", "Unknown"),
+    ],
+)
 def test_sistema_operativo(ua, esperado):
     assert parse_user_agent(ua)["os"] == esperado
 
@@ -110,14 +118,18 @@ def test_ios_no_se_confunde_con_macos():
 # Tipo de dispositivo
 # ============================================================
 
-@pytest.mark.parametrize("ua, esperado", [
-    (CHROME_ESCRITORIO, "Desktop"),
-    (SAFARI_MAC, "Desktop"),
-    (LINUX_ESCRITORIO, "Desktop"),
-    (ANDROID, "Mobile"),
-    (IPHONE, "Mobile"),
-    (IPAD, "Mobile"),
-])
+
+@pytest.mark.parametrize(
+    "ua, esperado",
+    [
+        (CHROME_ESCRITORIO, "Desktop"),
+        (SAFARI_MAC, "Desktop"),
+        (LINUX_ESCRITORIO, "Desktop"),
+        (ANDROID, "Mobile"),
+        (IPHONE, "Mobile"),
+        (IPAD, "Mobile"),
+    ],
+)
 def test_tipo_de_dispositivo(ua, esperado):
     assert parse_user_agent(ua)["device_type"] == esperado
 
@@ -125,6 +137,7 @@ def test_tipo_de_dispositivo(ua, esperado):
 # ============================================================
 # Robustez
 # ============================================================
+
 
 @pytest.mark.parametrize("ua", ["", "   ", "?", "x" * 5000, "<script>alert(1)</script>"])
 def test_no_revienta_con_entradas_raras(ua):

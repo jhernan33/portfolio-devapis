@@ -1,3 +1,5 @@
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
-asyncpg==0.30.0
+# 0.31 y no 0.30: la 0.30 no compila en Python 3.13 ni 3.14, así que en una
+# máquina con un Python reciente `make test` fallaba al crear el entorno.
+asyncpg==0.31.0

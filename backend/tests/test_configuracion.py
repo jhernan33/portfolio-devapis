@@ -7,10 +7,10 @@ levantar el servicio contra la base de producción con credenciales por
 defecto— y un `DB_HOST` con valor por defecto apuntó meses a un contenedor
 inexistente sin que nadie lo notara.
 """
+
 import pytest
 
 from app.config import load_settings
-
 
 OBLIGATORIAS = {
     "DB_PASSWORD": "secreto",
@@ -23,8 +23,13 @@ OBLIGATORIAS = {
 @pytest.fixture
 def entorno_limpio(monkeypatch):
     """Parte de un entorno sin ninguna variable del servicio."""
-    for nombre in list(OBLIGATORIAS) + [
-        "DB_USER", "DB_NAME", "DB_HOST", "DB_PORT", "ANALYTICS_IGNORE_NETWORKS"
+    for nombre in [
+        *OBLIGATORIAS,
+        "DB_USER",
+        "DB_NAME",
+        "DB_HOST",
+        "DB_PORT",
+        "ANALYTICS_IGNORE_NETWORKS",
     ]:
         monkeypatch.delenv(nombre, raising=False)
     return monkeypatch
@@ -70,8 +75,7 @@ def test_se_listan_todas_las_que_faltan_de_una_vez(entorno_limpio):
         load_settings()
 
     mensaje = str(error.value)
-    assert all(n in mensaje for n in
-               ("ANALYTICS_USER", "ANALYTICS_PASSWORD", "ANALYTICS_IP_SALT"))
+    assert all(n in mensaje for n in ("ANALYTICS_USER", "ANALYTICS_PASSWORD", "ANALYTICS_IP_SALT"))
 
 
 def test_las_redes_a_ignorar_son_opcionales(entorno_limpio):

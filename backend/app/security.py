@@ -4,6 +4,7 @@ Autenticación HTTP Basic de los endpoints que exponen datos de visitas.
 Vive en la aplicación y no en el reverse proxy, de modo que la protección
 viaja con el repositorio y sobrevive a la recreación del contenedor.
 """
+
 import secrets
 
 from fastapi import Depends, HTTPException, status

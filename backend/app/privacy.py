@@ -10,6 +10,7 @@ Las funciones reciben la sal y las redes a ignorar como parámetros en lugar
 de leerlas de un estado global: así su firma dice de qué dependen y se
 prueban sin preparar nada.
 """
+
 import hashlib
 import ipaddress
 
@@ -38,7 +39,7 @@ def anonymize_ip(raw_ip: str, salt: str):
 
     network = 24 if ip.version == 4 else 48
     prefix = str(ipaddress.ip_network(f"{ip}/{network}", strict=False).network_address)
-    digest = hashlib.sha256(f"{salt}:{ip}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(f"{salt}:{ip}".encode()).hexdigest()
 
     return prefix, digest
 

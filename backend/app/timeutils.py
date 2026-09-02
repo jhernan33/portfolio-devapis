@@ -1,5 +1,6 @@
 """Conversión de las fechas almacenadas (UTC) a la hora de presentación."""
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta, timezone
 
 VENEZUELA = timezone(timedelta(hours=-4))
 
@@ -9,5 +10,5 @@ def to_venezuela_time(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt.astimezone(VENEZUELA)

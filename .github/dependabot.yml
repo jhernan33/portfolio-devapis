@@ -1,0 +1,48 @@
+# Actualizaciones automáticas de dependencias.
+#
+# Existe porque nadie revisa CVEs a mano: las dependencias del backend estuvieron
+# más de un año sin tocarse. Semanal y agrupado, para que sea un PR que se revisa
+# y no diez que se ignoran.
+version: 2
+updates:
+  # Dependencias de Python del backend (producción y desarrollo).
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      backend-parches:
+        update-types: [patch, minor]
+    commit-message:
+      prefix: "deps"
+
+  # Imágenes base: nginx-unprivileged y python-slim.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "deps"
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "deps"
+
+  # Acciones de los workflows. Van fijadas por SHA, así que sin esto se
+  # quedarían congeladas para siempre.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"

@@ -6,6 +6,7 @@ Las rutas los reciben por `Depends`, así que ni la lógica ni los tests tienen
 que saber dónde se guardan: los tests sustituyen `app.state.pool` por un
 doble en memoria y todo lo demás funciona igual.
 """
+
 from fastapi import Request
 
 from .config import Settings

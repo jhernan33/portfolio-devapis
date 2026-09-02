@@ -6,6 +6,7 @@ datos justamente para poder ejercitarla sin PostgreSQL. Lo que hay que
 garantizar es que corrija lo que estaba mal, que no toque lo que ya estaba
 bien y que no invente nada donde no hay de dónde derivarlo.
 """
+
 import migrar_user_agents as migracion
 
 ANDROID = (
@@ -41,6 +42,7 @@ def fila(id_, agente, navegador, sistema, dispositivo):
 # Qué corrige
 # ============================================================
 
+
 def test_corrige_android_guardado_como_linux():
     filas = [fila(1, ANDROID, "Chrome", "Linux", "Mobile")]
     assert migracion.recalcular(filas) == [(1, "Chrome", "Android", "Mobile")]
@@ -60,7 +62,7 @@ def test_corrige_varias_a_la_vez():
     filas = [
         fila(1, ANDROID, "Chrome", "Linux", "Mobile"),
         fila(2, IPHONE, "Safari", "macOS", "Mobile"),
-        fila(3, WINDOWS, "Chrome", "Windows", "Desktop"),   # esta ya está bien
+        fila(3, WINDOWS, "Chrome", "Windows", "Desktop"),  # esta ya está bien
     ]
     assert [c[0] for c in migracion.recalcular(filas)] == [1, 2]
 
@@ -68,6 +70,7 @@ def test_corrige_varias_a_la_vez():
 # ============================================================
 # Qué NO toca
 # ============================================================
+
 
 def test_una_fila_correcta_no_se_reescribe():
     """
@@ -96,6 +99,7 @@ def test_una_base_vacia_no_da_problemas():
 # Idempotencia
 # ============================================================
 
+
 def test_ejecutarla_dos_veces_no_cambia_nada_la_segunda():
     """
     Recalcular es determinista: tras aplicar las correcciones, una segunda
@@ -116,9 +120,7 @@ def test_ejecutarla_dos_veces_no_cambia_nada_la_segunda():
     ya_migradas = []
     for f in filas:
         _, navegador, sistema, dispositivo = por_id[f["id"]]
-        ya_migradas.append(
-            fila(f["id"], f["user_agent"], navegador, sistema, dispositivo)
-        )
+        ya_migradas.append(fila(f["id"], f["user_agent"], navegador, sistema, dispositivo))
 
     assert migracion.recalcular(ya_migradas) == []
 
@@ -135,13 +137,16 @@ def test_el_resultado_coincide_con_lo_que_guardaria_el_servicio():
         filas = [fila(1, agente, "x", "x", "x")]
         _, navegador, sistema, dispositivo = migracion.recalcular(filas)[0]
         assert (navegador, sistema, dispositivo) == (
-            esperado["browser"], esperado["os"], esperado["device_type"]
+            esperado["browser"],
+            esperado["os"],
+            esperado["device_type"],
         )
 
 
 # ============================================================
 # Resumen previo
 # ============================================================
+
 
 def test_el_resumen_cuenta_cada_tipo_de_cambio():
     filas = [

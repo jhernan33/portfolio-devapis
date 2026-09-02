@@ -42,6 +42,7 @@ Desde el contenedor, si no hay Python con asyncpg en el host:
 
 (requiere que la imagen incluya este fichero; si no, cópialo con `docker cp`).
 """
+
 import argparse
 import asyncio
 import sys
@@ -51,7 +52,6 @@ import asyncpg
 
 from app.config import load_settings
 from app.useragent import parse_user_agent
-
 
 # Solo estas tres columnas se derivan del User-Agent.
 CAMPOS = ("browser", "os", "device_type")
@@ -164,7 +164,7 @@ def main() -> int:
 
     try:
         return asyncio.run(ejecutar(argumentos.aplicar))
-    except RuntimeError as error:      # falta configuración
+    except RuntimeError as error:  # falta configuración
         print(f"❌ {error}", file=sys.stderr)
         return 1
 
