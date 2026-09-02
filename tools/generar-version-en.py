@@ -40,7 +40,18 @@ TRADUCCIONES = [
     (">Proyectos<", ">Projects<"),
     (">Educación<", ">Education<"),
     ('aria-label="Navegación principal"', 'aria-label="Main navigation"'),
-    ('aria-label="Exportar a PDF"', 'aria-label="Export to PDF"'),
+    # Botón de descarga del CV en formato ATS: cada idioma tiene su documento,
+    # así que se sustituye el elemento entero y no solo el aria-label. La ruta
+    # va absoluta porque la página inglesa no lleva <base> y "documentos/..."
+    # se resolvería contra /cv/en/.
+    ('''<a class="nav__btn nav__btn--pdf" id="descargar-cv"
+				   href="documentos/Jose-Hernan-Varela-Backend-Developer.pdf" download
+				   title="Descargar CV en PDF (formato ATS)"
+				   aria-label="Descargar el CV en PDF, en formato legible por sistemas de selección">''',
+     '''<a class="nav__btn nav__btn--pdf" id="descargar-cv"
+				   href="/cv/documentos/Jose-Hernan-Varela-Backend-Developer-EN.pdf" download
+				   title="Download CV as PDF (ATS-friendly)"
+				   aria-label="Download the CV as a PDF, in a format applicant tracking systems can read">'''),
     ('aria-label="Cambiar tema"', 'aria-label="Toggle theme"'),
     ('aria-label="Abrir menú de navegación"', 'aria-label="Open navigation menu"'),
     # conmutador de idioma: en la versión inglesa apunta de vuelta al español

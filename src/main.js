@@ -512,63 +512,33 @@
 	};
 
 	/* ============================================
-	   PDF EXPORT
+	   IMPRESIÓN
 	   ============================================ */
 
-	const PDFExport = {
+	// El botón del nav ya no imprime: descarga el CV en formato ATS. Aquí solo
+	// queda la impresión de la propia página (Ctrl+P o el menú del navegador),
+	// que en tema oscuro saldría con el fondo negro.
+	//
+	// Se escucha beforeprint/afterprint en lugar de interceptar Ctrl+P: así
+	// también cubre el menú del navegador y la vista previa, y desaparece el
+	// window.print() diferido con setTimeout, que era una carrera contra el
+	// repintado.
+	const PrintHandler = {
 		init() {
-			this.btn = document.getElementById('export-pdf');
-			if (!this.btn) {
-				console.warn('PDF export button not found');
-				return;
-			}
-			
-			console.log('PDF export button found');
-			
-			// Usar tanto click como touchend para mejor compatibilidad móvil
-			this.btn.addEventListener('click', (e) => {
-				console.log('PDF button clicked');
-				e.preventDefault();
-				this.exportPDF();
+			this.temaPrevio = null;
+
+			window.addEventListener('beforeprint', () => {
+				this.temaPrevio = document.documentElement.getAttribute('data-theme');
+				document.documentElement.setAttribute('data-theme', 'light');
 			});
-			
-			this.btn.addEventListener('touchend', (e) => {
-				console.log('PDF button touched');
-				e.preventDefault();
-				this.exportPDF();
-			}, { passive: false });
-		},
-		
-		exportPDF() {
-			// Forzar tema claro para impresión
-			const currentTheme = document.documentElement.getAttribute('data-theme');
-			document.documentElement.setAttribute('data-theme', 'light');
-			
-			// Pequeño delay para que se apliquen los estilos
-			setTimeout(() => {
-				window.print();
-				
-				// Restaurar tema después de imprimir
-				if (currentTheme) {
-					document.documentElement.setAttribute('data-theme', currentTheme);
+
+			window.addEventListener('afterprint', () => {
+				if (this.temaPrevio) {
+					document.documentElement.setAttribute('data-theme', this.temaPrevio);
 				} else {
 					document.documentElement.removeAttribute('data-theme');
 				}
-			}, 100);
-		}
-	};
-
-	/* ============================================
-	   PRINT HANDLER
-	   ============================================ */
-
-	const PrintHandler = {
-		init() {
-			document.addEventListener('keydown', (e) => {
-				if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-					e.preventDefault();
-					PDFExport.exportPDF();
-				}
+				this.temaPrevio = null;
 			});
 		}
 	};
@@ -627,7 +597,6 @@
 		ScrollTop.init();
 		CertModal.init();
 		CertsToggle.init();
-		PDFExport.init();
 		PrintHandler.init();
 		Analytics.init();
 
