@@ -79,9 +79,12 @@ ANALYTICS_IP_SALT=      # obligatoria - openssl rand -hex 32
   se pierde la continuidad del conteo de visitantes únicos.
 - Copia la plantilla con `cp .env.example .env` y rellénala.
 
-## 📊 Paso 2: Crear la Tabla en PostgreSQL
+## 📊 Paso 2: Crear la base y el rol
 
-Conecta a tu base de datos PostgreSQL y ejecuta el script SQL:
+**La tabla no se crea a mano.** El esquema vive en `backend/migrations/`, se
+aplica la primera vez que arranca `analytics-api` y queda anotado en la tabla
+`schema_migrations`. Aquí solo hay que dejar preparados la base de datos y un
+rol con permisos mínimos.
 
 ```bash
 # Opción 1: Desde el host
@@ -149,8 +152,29 @@ curl https://devapis.cloud/health
 Respuesta esperada:
 
 ```json
-{"status":"healthy","database":"connected"}
+{"status":"ok"}
 ```
+
+Es deliberadamente escueto: `/health` es una ruta abierta y no tiene por qué
+decir qué componente concreto está caído. Si el backend no alcanza la base,
+responde **503**. El diagnóstico con detalle —cuántas visitas hay, cuántas
+internas, el estado del pool— está en `/api/analytics/health`, que pide
+credenciales:
+
+```bash
+curl -u "$ANALYTICS_USER:$ANALYTICS_PASSWORD" https://devapis.cloud/api/analytics/health
+```
+
+### 4.2 bis. Comprobar las migraciones aplicadas
+
+```bash
+docker compose logs analytics-api | grep Migración
+docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c \
+  "SELECT * FROM schema_migrations ORDER BY version;"
+```
+
+En un arranque posterior no debe aplicarse ninguna: el log dirá
+`Esquema al día: N migraciones ya aplicadas`.
 
 ### 4.3. Probar el tracking:
 
@@ -328,6 +352,49 @@ done
 
 ## 📈 Monitoreo Continuo
 
+### Comprobar que producción está sana
+
+```bash
+./tools/verificar-produccion.sh
+```
+
+Son las mismas cinco comprobaciones que ejecuta el despliegue y que repite
+[`monitor.yml`](.github/workflows/monitor.yml) cada media hora, abriendo un
+issue si algo falla. Complemento recomendado: un chequeo externo de `/health`
+en healthchecks.io o similar, por si lo que está caído es GitHub Actions.
+
+### Respaldo
+
+```bash
+./tools/respaldar-db.sh          # vuelca, verifica el volcado y rota a 30 días
+```
+
+En cron, a diario:
+
+```cron
+30 3 * * * cd /ruta/al/repo && ./tools/respaldar-db.sh >> ~/respaldos/cv.log 2>&1
+```
+
+Restaurar:
+
+```bash
+gunzip -c cv-analytics-2026-09-02.sql.gz | \
+  docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
+```
+
+### Retención
+
+```bash
+# Simulacro: enseña qué haría y no escribe nada
+docker compose exec analytics-api python /app/depurar_visitas.py
+docker compose exec analytics-api python /app/depurar_visitas.py --aplicar
+```
+
+Retira el User-Agent y el referente de las visitas de más de 24 meses. Conserva
+navegador, sistema, dispositivo y hashes, que es lo que alimenta las
+estadísticas. Después de esto, `migrar_user_agents.py` ya no puede recalcular
+esas filas: si vas a cambiar `parse_user_agent`, ejecútalo antes.
+
 ### Ver logs en tiempo real:
 
 ```bash
@@ -499,8 +566,13 @@ sin `user_agent` se dejan como están en lugar de sobrescribirlas con `Unknown`.
 
 ## ⏮️ Volver atrás (rollback)
 
-Hasta ahora, volver a una versión anterior significaba buscar un SHA a mano
-mientras algo estaba roto. Cada versión desplegada lleva ahora una etiqueta:
+**Lo primero: casi nunca hace falta hacerlo a mano.** `update-production.sh`
+etiqueta las imágenes actuales como `:previa` antes de reconstruir, espera a
+que los contenedores estén sanos de verdad y ejecuta
+`tools/verificar-produccion.sh`. Si algo falla, vuelve solo a `:previa` y
+termina en error. Un despliegue fallido deja el sitio en pie.
+
+Para volver atrás a mano, a una versión anterior a la última:
 
 ```bash
 git tag -n9              # qué es cada versión

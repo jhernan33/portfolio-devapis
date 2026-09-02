@@ -37,7 +37,7 @@ Landing page profesional de CV/Portfolio para Senior Backend Developer. Sitio es
 - **Security Headers**: CSP, HSTS, X-Frame-Options, etc.
 - **Health Checks**: Monitoreo integrado de contenedor
 
-### 📊 Analytics (NUEVO)
+### 📊 Analytics
 - **Backend Propio**: FastAPI para tracking de visitas
 - **Base de Datos**: PostgreSQL para almacenamiento
 - **Dashboard en Tiempo Real**: Visualización de estadísticas
@@ -68,15 +68,29 @@ landPage/
 │   ├── main.js                  # Vanilla JS modules (~300 lines)
 │   └── assets/
 │       └── images/              # Certificate images (17 files)
-├── backend/                      # Analytics API (FastAPI + asyncpg)
-│   ├── main.py                  # Entrypoint: app = create_app()
-│   ├── app/                     # Package: config, security, privacy, db, repositories, routes, static
-│   └── tests/                   # pytest, no PostgreSQL needed
-├── Dockerfile                    # Container definition
-├── docker-compose.yaml           # Docker Compose orchestration
-├── nginx.conf                    # Nginx configuration
-├── CLAUDE.md                     # AI assistant guidance
-└── README.md                     # This file
+│   ├── theme-init.js            # Aplica el tema antes del primer pintado
+│   └── 404.html                 # Página de error propia
+├── backend/                      # API de analytics (FastAPI + asyncpg)
+│   ├── main.py                  # Punto de entrada: app = create_app()
+│   ├── app/                     # config, security, privacy, db, migrations,
+│   │                            # models, repositories, routes, static
+│   ├── migrations/              # Esquema versionado, aplicado al arrancar
+│   ├── mantenimiento.py         # Andamiaje común de los scripts de datos
+│   └── tests/                   # pytest, sin necesidad de PostgreSQL
+├── tools/                        # Generadores y utilidades
+│   ├── generar-version-en.py    # src/en/index.html desde src/index.html
+│   ├── generar-cv-ats.py        # Los CV descargables (.docx y .pdf)
+│   ├── generar-og.py            # Las imágenes de previsualización
+│   ├── verificar-produccion.sh  # Las comprobaciones del despliegue y el monitor
+│   ├── respaldar-db.sh          # Respaldo con verificación y rotación
+│   └── e2e/                     # Tests de navegador (Playwright)
+├── Dockerfile                    # Imagen del CV (nginx-unprivileged)
+├── docker-compose.yaml           # Producción, tras Traefik
+├── docker-compose.dev.yaml       # Stack local completo, con su PostgreSQL
+├── nginx.conf                    # Configuración de Nginx
+├── nginx-security-headers.conf   # Cabeceras, incluidas en cada location
+├── CLAUDE.md                     # Guía para el asistente
+└── README.md                     # Este fichero
 ```
 
 ## 🚀 Instalación y Uso
@@ -191,25 +205,41 @@ PrintHandler      // Keyboard shortcuts (Ctrl+P)
 
 ## 📊 Performance Metrics
 
+Lo que descarga un visitante al abrir el CV: HTML, CSS y JavaScript. Las
+imágenes de los diplomas no cuentan, porque solo se piden al abrir el modal.
+
 | Métrica | Valor |
 |---------|-------|
-| HTML Size | ~11 KB |
-| CSS Size | ~55 KB |
-| JS Size | ~10 KB |
-| Total Load | ~76 KB |
-| First Paint | < 500ms |
-| Interactive | < 1s |
-| Lighthouse Score | 95+ |
+| HTML + CSS + JS de una versión | ~97 KB sin minificar |
+| Presupuesto vigilado por la CI | < 200 KB |
+| Imágenes (14 diplomas en WebP) | 522 KB, bajo demanda |
+| Dependencias del frontend | ninguna |
+
+El presupuesto lo comprueba la CI en cada push, así que la cifra no envejece.
 
 ## 🔒 Seguridad
 
 ### Headers Implementados
+
+Del CV (`nginx-security-headers.conf`, incluido en el `server` **y en cada
+`location`**: Nginx no acumula `add_header` entre niveles, y por eso durante
+meses ninguna respuesta llevó ninguna de estas cabeceras):
+
+- `Content-Security-Policy: default-src 'self'; script-src 'self'…`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
 - `X-Frame-Options: SAMEORIGIN`
 - `X-Content-Type-Options: nosniff`
-- `X-XSS-Protection: 1; mode=block`
-- `Strict-Transport-Security: max-age=31536000`
-- `Content-Security-Policy: default-src 'self'...`
 - `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: geolocation=(), microphone=(), camera=()`
+
+`X-XSS-Protection` se retiró a propósito: los navegadores actuales la ignoran y
+en los que la implementaron el filtro llegó a introducir vulnerabilidades
+propias.
+
+Del backend (`backend/app/middleware.py`), que contesta directo por Traefik:
+`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, una CSP de
+`default-src 'none'` para las respuestas JSON y `Cache-Control: no-store` en
+todo lo que devuelve datos de visitas.
 
 ### Medidas Adicionales
 - Volúmenes read-only en Docker
@@ -235,8 +265,8 @@ de estas decisiones, la auditoría de seguridad que las motivó y cómo se verif
 
 ```bash
 cd backend
-pip install -r requirements-dev.txt
-python -m pytest
+make test     # crea .venv, instala las dependencias y ejecuta pytest
+make lint     # ruff check + ruff format --check, lo mismo que la CI
 ```
 
 **No hace falta PostgreSQL.** El pool se sustituye por un doble en memoria y
@@ -253,7 +283,10 @@ Qué cubren, por orden de importancia:
 | Tráfico propio | Rangos privados, la IP pública del propio servidor vía `ANALYTICS_IGNORE_NETWORKS`, y "ante la duda, interno" |
 | Autenticación | Toda ruta de estadísticas responde 401 sin credenciales y 503 si no hay credenciales configuradas; el `realm` distingue si contestó la aplicación o el panel de Traefik |
 | Arranque | Falta un secreto obligatorio → el servicio se niega a arrancar, nombrando cuál |
-| User-Agent | El orden de las comprobaciones (ver abajo) |
+| User-Agent | El orden de las comprobaciones (ver abajo) y qué es un rastreador |
+| Migraciones | Se aplican en orden, no se repiten, y una que falla no queda anotada como hecha |
+| Calidad de los datos | Una recarga no cuenta como visita nueva; dos navegadores en la misma IP son dos personas; la página que manda el navegador nunca se guarda en crudo |
+| Cabeceras | Toda respuesta del backend las lleva, incluido un 401; el panel conserva su propia CSP |
 
 **Estos tests encontraron tres fallos reales el día que se escribieron.** Cada
 cadena de User-Agent contiene varias pistas a la vez y gana la primera que se
@@ -275,22 +308,42 @@ fallo que este repositorio ya tuvo.**
 | Ningún `-old.*` en `src/` | Tres copias antiguas estuvieron descargables en `/cv/index-old.html` |
 | `.env` no versionado | Lleva la contraseña de la base y la sal de las IPs |
 | Sin datos de contacto directo | El teléfono se retiró del repositorio a propósito |
-| Sin `<script>` inline | La CSP los bloquea; el fallo solo se ve en producción |
+| Sin `<script>` inline | La CSP los bloquea; el fallo solo se ve en producción. La guarda combinaba `grep -E` y `-P`, que es un error de grep: llevaba desde el principio sin comprobar nada |
 | Rutas de analytics con `Depends(require_analytics_auth)` | El dashboard estuvo protegido solo por el proxy |
 | `ip_address` ni se crea ni se escribe | Las IPs no vuelven a almacenarse en claro |
-| DDL sincronizado entre `backend/app/db.py` y el SQL | El esquema vive en dos sitios |
+| El directorio de migraciones entra en la imagen | Sin él, el contenedor arranca contra una base sin tabla y solo falla en la primera visita |
+| Las migraciones aplicadas no se reescriben | Editar una deja las bases que ya la aplicaron con un esquema distinto del que dicen tener |
+| Todo router bajo `/api` declara rate limit | HTTP Basic sin límite de intentos es fuerza bruta gratis |
+| Ningún `print` en el backend | Sin nivel ni marca de tiempo, el motivo del bucle de reinicio de meses estaba en uno de ellos |
+| Ninguna acción con etiqueta móvil | `@v4` ejecuta lo que haya ese día en un runner con acceso al repositorio |
+| Contenedores sin root y con `read_only` | `/api/track` acepta escrituras públicas |
+| Nginx envía sus cabeceras en todas las respuestas | `add_header` no se hereda en un `location`: no llegaba ninguna |
+| Una ruta inexistente devuelve 404 | Devolvía 200 con el CV entero: un *soft 404* para los buscadores |
+| Sin texto sin traducir en la versión inglesa | Encontró cuatro cadenas en español que llevaban publicadas meses |
 | Prioridades de Traefik por encima de 73 | Por debajo, el tracking cae en el panel de Traefik y devuelve 401 |
 | El compose falla si falta un secreto | Un `DB_HOST` por defecto dejó el servicio meses reiniciándose |
 | Versión en inglés y documentos ATS al día | Se generan desde `src/index.html`; si no, divergen en silencio |
 | Certificaciones con código y URL `https` | Un enlace de verificación roto es peor que ninguno |
 | Presupuesto de peso de la página | Estaba documentado pero nada lo medía |
-| `pytest` del backend | Los invariantes de arriba, ejecutándose de verdad |
+| `pytest` del backend y Playwright en el frontend | Los invariantes de arriba, ejecutándose de verdad y en un navegador de verdad |
+| `ruff` | El estilo deja de discutirse en cada revisión |
 
 ### Despliegue
 
 [`deploy.yml`](.github/workflows/deploy.yml) se dispara **solo si la CI terminó
 en verde sobre `main`**, actualiza el servidor por SSH y después verifica desde
-fuera las tres cosas que este proyecto ya vio romperse: que `/health` responda,
+fuera, con `tools/verificar-produccion.sh`, las cosas que este proyecto ya vio
+romperse. `update-production.sh` etiqueta las imágenes anteriores antes de
+reconstruir, espera a que los contenedores estén sanos de verdad en lugar de
+dormir diez segundos, y **vuelve a la versión anterior si la verificación
+falla**: un despliegue fallido deja el sitio en pie.
+
+[`monitor.yml`](.github/workflows/monitor.yml) repite esas comprobaciones cada
+media hora y abre un issue si algo falla, porque entre despliegues no había nada
+que avisara: el frontend se traga los errores de tracking por diseño, así que un
+backend caído no se nota desde fuera.
+
+Lo que verifica: que `/health` responda,
 que `POST /api/track` siga siendo público (un 401 ahí significa que el router ha
 vuelto a caer en el panel de Traefik) y que `/api/analytics` siga pidiendo
 credenciales *de la aplicación* y no del proxy.
@@ -298,21 +351,35 @@ credenciales *de la aplicación* y no del proxy.
 Mientras no existan los secretos del servidor, el job se salta y explica cuáles
 faltan, en lugar de fallar: un pipeline en rojo permanente se acaba ignorando.
 
-### Verificación manual
+### Tests de extremo a extremo del frontend
 
-Sigue sin haber tests de extremo a extremo del frontend
-([#11](https://github.com/jhernan33/portfolio-devapis/issues/11)). Antes de
-cada despliegue se comprueba a mano:
+```bash
+cd tools/e2e
+npm ci && npx playwright install chromium
+npx playwright test
+```
 
-- Conmutador de tema (claro/oscuro) y persistencia en `localStorage`
-- Navegación con scroll suave y resaltado de sección activa
-- Modal de certificados
-- Exportación a PDF (Ctrl+P), que fuerza el tema claro
-- Diseño responsive en móvil, tablet y escritorio
-- Navegación completa por teclado
-- Compatibilidad con lector de pantalla
+Playwright vive en `tools/e2e/` para que `src/` siga sin dependencias. Corren en
+escritorio y en móvil, y sirven `src/` bajo `/cv/` porque el HTML lleva
+`<base href="/cv/">`: servido en la raíz, todos los recursos darían 404 y los
+tests medirían una página sin estilos ni JavaScript.
 
-El backend se verifica con los endpoints descritos en `DEPLOY-ANALYTICS.md`.
+Cubren el checklist que antes se hacía a ojo: el tema persiste entre recargas,
+el modal de certificados atrapa el foco y lo devuelve a la tarjeta, las
+certificaciones colapsadas se despliegan, la navegación marca la sección activa
+(abriendo antes el menú en móvil), el tracking manda la ruta correcta, y los
+textos que genera el JavaScript salen en inglés en la versión inglesa.
+
+### Verificación de producción
+
+```bash
+./tools/verificar-produccion.sh
+```
+
+Las mismas cinco comprobaciones que ejecuta el despliegue y que repite el
+monitor cada media hora: que el CV responda con sus cabeceras, que una ruta
+inexistente dé 404, que el backend alcance la base, que el tracking siga siendo
+público y que las estadísticas sigan pidiendo credenciales.
 
 ### Navegadores Soportados
 - Chrome/Edge 90+
@@ -327,28 +394,33 @@ El CV incluye un sistema completo de analytics propio con backend FastAPI y Post
 
 ### Características del Analytics
 
-- **Tracking Automático**: Registra visitas automáticamente sin intervención
 - **Privacidad por diseño**: las IPs **nunca** se almacenan en claro. Se guardan
-  la red truncada (/24 en IPv4, /48 en IPv6) y un hash SHA-256 con sal, que
-  permite contar visitantes únicos sin poder reidentificarlos.
-- **Datos Capturados**:
-  - Red de origen truncada (derivada de x-forwarded-for de Traefik)
-  - Navegador y versión
-  - Sistema operativo
-  - Tipo de dispositivo (Mobile/Desktop)
-  - Referrer (de dónde viene)
-  - Idioma preferido
-  - Timestamp UTC
+  la red truncada (/24 en IPv4, /48 en IPv6) y dos hashes con sal: uno de la IP
+  y otro de IP + User-Agent, que permite contar visitantes únicos sin poder
+  reidentificarlos.
+- **Qué se guarda**: red de origen truncada, navegador, sistema operativo, tipo
+  de dispositivo, referente, idioma, versión del CV visitada y la fecha en UTC.
+- **Qué NO cuenta como visita**, aunque se guarde y se pueda ver marcado:
+  - **tráfico propio** — rangos privados y la IP pública del servidor;
+  - **rastreadores** — buscadores, redes sociales, auditorías, `curl`;
+  - **recargas** — el mismo visitante otra vez en menos de media hora.
+
+  En la primera medición con tráfico real, el 70% de las "visitas" era tráfico
+  propio. Sin esto, la única métrica con la que el CV se mide es ruido.
+- **Retención**: `backend/depurar_visitas.py` retira el User-Agent y el
+  referente de las visitas de más de 24 meses. Se conservan navegador, sistema
+  y hashes, que es lo que alimenta las estadísticas.
 
 ### Endpoints Disponibles
 
 | Endpoint | Método | Autenticación |
 |---|---|---|
-| `/health` | GET | Pública |
-| `/api/track` | POST | Pública (con rate limit en Traefik) |
-| `/api/analytics` | GET | 🔒 HTTP Basic |
+| `/health` | GET | Pública — 200 si atiende, 503 si no. No dice qué componente falla |
+| `/api/track` | POST | Pública (rate limit en Traefik: 10/min) |
+| `/api/analytics` | GET | 🔒 HTTP Basic (rate limit: 15/min) |
 | `/api/analytics/recent?limit=20` | GET | 🔒 HTTP Basic |
-| `/analytics` | GET | 🔒 HTTP Basic |
+| `/api/analytics/health` | GET | 🔒 HTTP Basic — diagnóstico detallado |
+| `/analytics` | GET | 🔒 HTTP Basic — panel |
 
 ```bash
 # Públicos
@@ -366,15 +438,14 @@ recrear los contenedores.
 ### Dashboard de Analytics
 
 El dashboard muestra en tiempo real:
-- **Visitas totales**
-- **Visitantes únicos** (por hash de IP con sal)
-- **Visitas últimos 7 días**
-- **Visitas hoy**
-- **Top navegadores**
-- **Redes de origen** truncadas, con última visita
-- **Estadísticas de dispositivos** (Mobile vs Desktop)
-- **Sistemas operativos**
-- **Últimas 10 visitas** con detalles completos
+- **Visitas totales**, **visitantes únicos**, **últimos 7 días** y **hoy**
+  (dónde empieza "hoy" lo decide `ANALYTICS_DISPLAY_TZ`, no el reloj del
+  contenedor de PostgreSQL)
+- **Top navegadores**, **dispositivos** y **redes de origen** truncadas
+- **Versión del CV** leída: español o inglés
+- **Últimas 10 visitas**, incluyendo las que no cuentan y por qué: interna,
+  rastreador o recarga. Sin esa tabla no habría forma de distinguir "no llega
+  nada" de "llega y se está descartando"
 
 **Acceso**: [https://devapis.cloud/analytics](https://devapis.cloud/analytics) — requiere usuario y contraseña.
 
@@ -390,27 +461,39 @@ cp .env.example .env
 nano .env  # Editar con credenciales reales
 
 # 2. Ejecutar script de despliegue automatizado
-./deploy-analytics.sh
+./deploy-analytics.sh   # el esquema lo crean las migraciones al arrancar
 
 # 3. Verificar que funciona
-curl https://devapis.cloud/health
-curl https://devapis.cloud/api/analytics
+./tools/verificar-produccion.sh
 ```
+
+Para probarlo entero sin tocar producción, `docker-compose.dev.yaml` levanta
+PostgreSQL, el CV y la API en local (ver más arriba).
 
 ### Queries Útiles
 
 ```bash
-# Ver todas las visitas
-docker exec -it postgres17 psql -U postgres -d postgres \
-  -c "SELECT * FROM cv_visits ORDER BY visited_at DESC LIMIT 10;"
+# $DB_HOST es el nombre del contenedor de PostgreSQL, y no es adivinable:
+#   docker ps --format '{{.Names}}' | grep -i postgres
 
-# Ver resumen
-docker exec -it postgres17 psql -U postgres -d postgres \
-  -c "SELECT * FROM cv_analytics_summary;"
+# Últimas visitas, con el motivo por el que alguna no cuenta
+docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c \
+  "SELECT visited_at, ip_prefix, browser, os, page, is_internal, is_bot, is_repeat
+   FROM cv_visits ORDER BY visited_at DESC LIMIT 10;"
 
-# Top 10 IPs
-docker exec -it postgres17 psql -U postgres -d postgres \
-  -c "SELECT ip_address, COUNT(*) as visits FROM cv_visits GROUP BY ip_address ORDER BY visits DESC LIMIT 10;"
+# Resumen (ya excluye tráfico propio, rastreadores y recargas)
+docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c \
+  "SELECT * FROM cv_analytics_summary;"
+
+# Redes de origen. NO hay columna de IP: se guarda el prefijo truncado
+docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c \
+  "SELECT ip_prefix, COUNT(*) AS visitas FROM cv_visits
+   WHERE NOT is_internal AND NOT is_bot
+   GROUP BY ip_prefix ORDER BY visitas DESC LIMIT 10;"
+
+# Qué migraciones se han aplicado
+docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c \
+  "SELECT * FROM schema_migrations ORDER BY version;"
 ```
 
 ### Arquitectura del Analytics
@@ -424,13 +507,19 @@ Frontend (JavaScript) ──POST /api/track──> FastAPI Backend
 Dashboard (HTML) ────GET /api/analytics───────┘
 ```
 
-### Privacidad y GDPR
+### Privacidad
 
-El sistema registra IPs para fines estadísticos. Se recomienda:
-1. Agregar política de privacidad en el footer
-2. Informar al usuario sobre el tracking
-3. Ofrecer opción de opt-out
-4. Implementar derecho al olvido (eliminar datos bajo petición)
+**El sistema no registra IPs.** Guarda la red truncada y hashes con sal, así que
+no hay dato personal que borrar ni con el que reidentificar a nadie: el derecho
+al olvido está resuelto por construcción y no por procedimiento.
+
+- El aviso está en el pie del sitio, en las dos versiones de idioma.
+- `ANALYTICS_IP_SALT` se genera una vez y no se rota: cambiarla rompe la
+  continuidad del conteo de visitantes únicos.
+- La retención (`backend/depurar_visitas.py`) retira a los 24 meses el
+  User-Agent y el referente, que son los campos con más entropía.
+- El respaldo (`tools/respaldar-db.sh`) se guarda cifrado en reposo solo si el
+  disco del servidor lo está; tenlo en cuenta al elegir dónde se copia.
 
 ## 📄 Licencia
 

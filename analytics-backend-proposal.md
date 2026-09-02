@@ -1,3 +1,15 @@
+> **Documento histórico.** Es la propuesta con la que se diseñó el backend de
+> analytics en agosto de 2026. Se conserva porque explica *por qué* se hizo un
+> servicio propio en lugar de usar Google Analytics, pero **el código que
+> describe ya no coincide con el que hay**: desde entonces el backend se dividió
+> en el paquete `backend/app/`, el esquema pasó a migraciones versionadas y se
+> añadieron anonimización, autenticación en la aplicación y el filtrado de
+> tráfico que no es una persona.
+>
+> Para el estado actual: [`CLAUDE.md`](CLAUDE.md) describe la arquitectura y
+> [`docs/DECISIONES-TECNICAS.md`](docs/DECISIONES-TECNICAS.md), el porqué de
+> cada cambio.
+
 # Sistema de Analytics Propio - Propuesta de Implementación
 
 ## Arquitectura

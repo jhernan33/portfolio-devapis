@@ -3,6 +3,12 @@
 Fecha: 2026-09-02. Origen: revisión de arquitectura del proyecto completo
 (frontend, backend, Nginx, Compose, CI, despliegue y herramientas).
 
+> **Estado: aplicado por completo el 2026-09-02.** Las siete fases están hechas.
+> Cada una anota debajo de su título las desviaciones respecto a lo planeado y
+> por qué. El razonamiento de cada cambio, y los fallos reales que aparecieron
+> al aplicarlo, están en [DECISIONES-TECNICAS.md](DECISIONES-TECNICAS.md),
+> secciones 6 a 12.
+
 Cada tarea indica **por qué**, **qué tocar**, **cómo saber que está hecha** y el
 **principio** que aplica. El tamaño es orientativo: S (menos de 2 h), M (media
 jornada), L (una jornada o más).
@@ -476,7 +482,7 @@ sección 12 de DECISIONES-TECNICAS.md.
 
 ---
 
-## Fase 7. Documentación (S, medio día)
+## Fase 7. Documentación — HECHA 2026-09-02
 
 - CLAUDE.md: nueva estructura del backend, `make test`, Compose de desarrollo,
   guardas nuevas.
