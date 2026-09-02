@@ -12,6 +12,7 @@ intermedia porque no hay lógica que la justifique: una tabla, un servicio.
 
 Se acuñan conexiones del pool por método, nunca conexiones sueltas.
 """
+
 from dataclasses import astuple, dataclass
 from datetime import datetime
 
@@ -20,6 +21,7 @@ from ..models import (
     BrowserCount,
     DailyCount,
     DeviceCount,
+    DiagnosticsResponse,
     NetworkCount,
     OsCount,
     RecentResponse,
@@ -36,6 +38,7 @@ EXTERNAS = "NOT is_internal"
 class Visit:
     """Una visita ya anonimizada, lista para persistir. El orden de los campos
     es el orden de las columnas del INSERT."""
+
     ip_prefix: str | None
     ip_hash: str | None
     user_agent: str
@@ -56,6 +59,33 @@ class VisitRepository:
         """Comprueba que la base responde. Lanza si no."""
         async with self._pool.acquire() as conn:
             await conn.fetchval("SELECT 1")
+
+    async def diagnostics(self) -> DiagnosticsResponse:
+        """
+        Estado detallado para depurar. Requiere autenticación.
+
+        Aquí sí interesa el tráfico interno: si algo no llega, lo primero que
+        hay que saber es si no llega nada o si llega y se está descartando.
+        """
+        async with self._pool.acquire() as conn:
+            fila = await conn.fetchrow("""
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE is_internal) AS internas,
+                    MAX(visited_at) AS ultima
+                FROM cv_visits
+            """)
+
+        return DiagnosticsResponse(
+            status="healthy",
+            visits_total=fila["total"],
+            visits_internal=fila["internas"],
+            # `or None`: con la tabla vacía no hay última visita, y el doble de
+            # los tests devuelve 0 en lugar de una fecha.
+            last_visit=fila["ultima"] or None,
+            pool_size=self._pool.get_size(),
+            pool_idle=self._pool.get_idle_size(),
+        )
 
     async def record(self, visit: Visit) -> None:
         async with self._pool.acquire() as conn:
@@ -159,13 +189,16 @@ class VisitRepository:
         hace falta enseñarlo.
         """
         async with self._pool.acquire() as conn:
-            filas = await conn.fetch("""
+            filas = await conn.fetch(
+                """
                 SELECT
                     ip_prefix, browser, os, device_type,
                     referer, language, is_internal, visited_at
                 FROM cv_visits
                 ORDER BY visited_at DESC
                 LIMIT $1
-            """, limit)
+            """,
+                limit,
+            )
 
         return RecentResponse(visits=[RecentVisit(**f) for f in filas])

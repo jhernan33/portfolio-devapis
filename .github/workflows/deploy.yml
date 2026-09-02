@@ -131,11 +131,11 @@ jobs:
             echo "  OK"
           fi
 
-          echo "→ /health"
-          if curl -fsS --max-time 15 https://devapis.cloud/health | grep -q '"healthy"'; then
+          echo "→ /health (público: solo dice si el servicio atiende)"
+          if curl -fsS --max-time 15 https://devapis.cloud/health | grep -q '"ok"'; then
             echo "  OK"
           else
-            echo "::error::/health no responde healthy: ¿alcanza el backend a PostgreSQL?"
+            echo "::error::/health no responde ok: ¿alcanza el backend a PostgreSQL? Devuelve 503 si no."
             fallos=1
           fi
 

@@ -10,6 +10,7 @@ Las fechas se guardan en UTC y se sirven en hora de Venezuela. La conversión
 vive en `DisplayDateTime`, un solo tipo compartido por todos los campos de
 fecha, para que nadie tenga que acordarse de convertir.
 """
+
 from datetime import date, datetime
 from typing import Annotated
 
@@ -25,17 +26,26 @@ DisplayDateTime = Annotated[
 
 # ---------------------------------------------------------------- públicas
 
+
 class TrackResponse(BaseModel):
     status: str
     timestamp: str | None = None
 
 
 class HealthResponse(BaseModel):
+    """
+    Respuesta del health check público. Solo dice si el servicio atiende.
+
+    No detalla el estado de la base: es una ruta abierta a cualquiera y no hay
+    razón para publicar qué componente concreto está caído. El diagnóstico
+    completo vive en /api/analytics/health, tras autenticación.
+    """
+
     status: str
-    database: str
 
 
 # ---------------------------------------------------------------- estadísticas
+
 
 class Summary(BaseModel):
     total_visits: int
@@ -51,6 +61,7 @@ class BrowserCount(BaseModel):
 
 class NetworkCount(BaseModel):
     """Redes de origen (prefijo truncado), nunca IPs individuales."""
+
     ip_prefix: str
     visits: int
     last_visit: DisplayDateTime | None
@@ -93,3 +104,14 @@ class RecentVisit(BaseModel):
 
 class RecentResponse(BaseModel):
     visits: list[RecentVisit]
+
+
+class DiagnosticsResponse(BaseModel):
+    """Diagnóstico detallado. Autenticado: dice más de lo que conviene publicar."""
+
+    status: str
+    visits_total: int
+    visits_internal: int
+    last_visit: DisplayDateTime | None
+    pool_size: int
+    pool_idle: int

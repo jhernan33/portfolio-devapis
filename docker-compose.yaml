@@ -130,6 +130,16 @@ services:
       - "traefik.http.routers.analytics-private.tls=true"
       - "traefik.http.routers.analytics-private.tls.certresolver=resolver"
       - "traefik.http.routers.analytics-private.service=analytics"
+      # Rate limit propio, más estricto que el del tracking. La comparación de
+      # credenciales es en tiempo constante, lo que cierra los ataques de
+      # temporización pero no los de volumen: sin esto, probar contraseñas
+      # contra HTTP Basic sale gratis. 15/min con ráfaga de 30 no molesta al
+      # panel —carga 5 peticiones y luego 2 cada 30 s— y deja la fuerza bruta
+      # en algo que no termina nunca.
+      - "traefik.http.middlewares.analytics-auth-ratelimit.ratelimit.average=15"
+      - "traefik.http.middlewares.analytics-auth-ratelimit.ratelimit.burst=30"
+      - "traefik.http.middlewares.analytics-auth-ratelimit.ratelimit.period=1m"
+      - "traefik.http.routers.analytics-private.middlewares=analytics-auth-ratelimit@docker"
 
       # Service binding compartido por ambos routers
       - "traefik.http.services.analytics.loadbalancer.server.port=8000"

@@ -5,13 +5,14 @@ Toda ruta de aquí toma `Depends(require_analytics_auth)`, incluidos los
 ficheros estáticos del panel: la CI lo comprueba estáticamente y los tests
 lo ejecutan. Añadir una ruta sin la dependencia es publicar datos de visitas.
 """
+
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse, Response
 
 from ..dependencies import get_visits
-from ..models import AnalyticsResponse, RecentResponse
+from ..models import AnalyticsResponse, DiagnosticsResponse, RecentResponse
 from ..repositories.visits import VisitRepository
 from ..security import require_analytics_auth
 
@@ -49,6 +50,16 @@ async def get_recent_visits(
 ):
     """Visitas recientes, tráfico interno incluido y marcado. Requiere autenticación."""
     return await visits.recent(limit)
+
+
+@router.get("/api/analytics/health", response_model=DiagnosticsResponse)
+async def get_diagnostics(
+    _user: str = Depends(require_analytics_auth),
+    visits: VisitRepository = Depends(get_visits),
+):
+    """Diagnóstico detallado: cuántas visitas hay, cuántas internas y el estado
+    del pool. Es lo que el health check público deliberadamente no publica."""
+    return await visits.diagnostics()
 
 
 @router.get("/analytics", response_class=HTMLResponse)

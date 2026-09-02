@@ -5,8 +5,8 @@ La CI ya comprueba estáticamente que toda ruta de datos declare
 `Depends(require_analytics_auth)`. Esto lo comprueba ejecutándolo, que es lo
 único que descarta que la dependencia esté puesta pero no surta efecto.
 """
-import pytest
 
+import pytest
 from conftest import CLAVE, USUARIO
 
 pytestmark = pytest.mark.asyncio
@@ -17,8 +17,12 @@ BUENAS = (USUARIO, CLAVE)
 # Incluye los ficheros del panel: se sirven bajo el mismo prefijo y con las
 # mismas credenciales, para que nada del panel quede fuera de la protección.
 RUTAS_PRIVADAS = [
-    "/api/analytics", "/api/analytics/recent", "/analytics",
-    "/analytics/dashboard.js", "/analytics/dashboard.css",
+    "/api/analytics",
+    "/api/analytics/recent",
+    "/api/analytics/health",
+    "/analytics",
+    "/analytics/dashboard.js",
+    "/analytics/dashboard.css",
 ]
 
 
@@ -26,10 +30,44 @@ RUTAS_PRIVADAS = [
 # Rutas públicas
 # ============================================================
 
+
 async def test_health_responde_si_la_base_contesta(cliente):
     respuesta = await cliente.get("/health")
     assert respuesta.status_code == 200
-    assert respuesta.json() == {"status": "healthy", "database": "connected"}
+    assert respuesta.json() == {"status": "ok"}
+
+
+async def test_el_health_publico_no_dice_que_componente_falla(cliente):
+    """
+    Es una ruta abierta. Que responda o no ya dice si el servicio atiende; qué
+    pieza concreta está caída es información para quien administra, no para
+    quien pasa por ahí. El detalle vive en /api/analytics/health.
+    """
+    cuerpo = (await cliente.get("/health")).text
+    assert "database" not in cuerpo and "postgres" not in cuerpo.lower()
+
+
+async def test_el_diagnostico_autenticado_si_da_detalle(cliente):
+    datos = (await cliente.get("/api/analytics/health", auth=BUENAS)).json()
+    assert set(datos) == {
+        "status",
+        "visits_total",
+        "visits_internal",
+        "last_visit",
+        "pool_size",
+        "pool_idle",
+    }
+
+
+async def test_el_diagnostico_cuenta_tambien_el_trafico_interno(cliente, conexion):
+    """
+    Al revés que las estadísticas. Si algo no llega, lo primero que hay que
+    saber es si no llega nada o si llega y se está descartando.
+    """
+    await cliente.get("/api/analytics/health", auth=BUENAS)
+    sql = conexion.consultados[-1][0]
+    assert "NOT is_internal" not in sql
+    assert "FILTER (WHERE is_internal)" in sql
 
 
 async def test_health_da_503_si_la_base_falla(cliente, conexion):
@@ -49,7 +87,7 @@ async def test_track_es_publico(cliente):
 async def test_track_no_filtra_el_error_al_cliente(cliente, conexion):
     conexion.error = RuntimeError("password authentication failed for user cv")
     respuesta = await cliente.post("/api/track")
-    assert respuesta.status_code == 200          # nunca degrada la experiencia
+    assert respuesta.status_code == 200  # nunca degrada la experiencia
     assert respuesta.json() == {"status": "error"}
     assert "password" not in respuesta.text
 
@@ -57,6 +95,7 @@ async def test_track_no_filtra_el_error_al_cliente(cliente, conexion):
 # ============================================================
 # Matriz de autenticación
 # ============================================================
+
 
 @pytest.mark.parametrize("ruta", RUTAS_PRIVADAS)
 async def test_sin_credenciales_401(cliente, ruta):
@@ -76,12 +115,15 @@ async def test_el_401_lo_firma_la_aplicacion_no_traefik(cliente, ruta):
 
 
 @pytest.mark.parametrize("ruta", RUTAS_PRIVADAS)
-@pytest.mark.parametrize("credenciales", [
-    ("otro", CLAVE),
-    (USUARIO, "clave-incorrecta"),
-    ("", ""),
-    (USUARIO.upper(), CLAVE),      # el usuario distingue mayúsculas
-])
+@pytest.mark.parametrize(
+    "credenciales",
+    [
+        ("otro", CLAVE),
+        (USUARIO, "clave-incorrecta"),
+        ("", ""),
+        (USUARIO.upper(), CLAVE),  # el usuario distingue mayúsculas
+    ],
+)
 async def test_credenciales_incorrectas_401(cliente, ruta, credenciales):
     respuesta = await cliente.get(ruta, auth=credenciales)
     assert respuesta.status_code == 401
@@ -110,6 +152,7 @@ async def test_la_documentacion_interactiva_esta_deshabilitada(cliente):
 # Qué llega a la base de datos
 # ============================================================
 
+
 async def test_la_ip_del_visitante_no_llega_en_claro(cliente, conexion):
     ip = "93.184.216.34"
     await cliente.post("/api/track", headers={"x-forwarded-for": ip})
@@ -117,7 +160,7 @@ async def test_la_ip_del_visitante_no_llega_en_claro(cliente, conexion):
     sql, argumentos = conexion.inserciones[-1]
     assert ip not in sql
     assert ip not in [str(a) for a in argumentos]
-    assert "93.184.216.0" in argumentos          # el prefijo truncado sí
+    assert "93.184.216.0" in argumentos  # el prefijo truncado sí
 
 
 async def test_se_guarda_el_prefijo_y_el_hash(cliente, conexion):
@@ -151,6 +194,7 @@ async def test_se_toma_la_primera_ip_de_la_cadena(cliente, conexion):
 
 async def test_el_trafico_propio_se_marca_como_interno(cliente, conexion, configurar):
     import ipaddress
+
     configurar(ignore_networks=[ipaddress.ip_network("93.184.216.34/32")])
 
     await cliente.post("/api/track", headers={"x-forwarded-for": "93.184.216.34"})
@@ -170,7 +214,7 @@ async def test_se_guardan_navegador_sistema_y_dispositivo(cliente, conexion):
         headers={"user-agent": android, "x-forwarded-for": "8.8.8.8"},
     )
     agente, navegador, sistema, dispositivo = conexion.argumentos_insertados()[2:6]
-    assert agente == android             # el user_agent se guarda entero
+    assert agente == android  # el user_agent se guarda entero
     assert (navegador, sistema, dispositivo) == ("Chrome", "Android", "Mobile")
 
 
@@ -186,14 +230,22 @@ async def test_solo_se_guarda_el_primer_idioma(cliente, conexion):
 # Forma de las respuestas
 # ============================================================
 
+
 async def test_analytics_devuelve_la_estructura_que_espera_el_panel(cliente):
     datos = (await cliente.get("/api/analytics", auth=BUENAS)).json()
     assert set(datos) == {
-        "summary", "top_browsers", "top_networks",
-        "device_stats", "os_stats", "daily_visits",
+        "summary",
+        "top_browsers",
+        "top_networks",
+        "device_stats",
+        "os_stats",
+        "daily_visits",
     }
     assert set(datos["summary"]) == {
-        "total_visits", "unique_visitors", "recent_visits_7d", "today_visits",
+        "total_visits",
+        "unique_visitors",
+        "recent_visits_7d",
+        "today_visits",
     }
 
 
@@ -217,7 +269,7 @@ async def test_las_visitas_recientes_no_filtran_el_trafico_interno(cliente, cone
     await cliente.get("/api/analytics/recent", auth=BUENAS)
     sql = conexion.consultados[-1][0]
     assert "NOT is_internal" not in sql
-    assert "is_internal" in sql          # pero sí se expone la marca
+    assert "is_internal" in sql  # pero sí se expone la marca
 
 
 async def test_las_visitas_recientes_no_exponen_el_hash(cliente, conexion):
@@ -228,26 +280,37 @@ async def test_las_visitas_recientes_no_exponen_el_hash(cliente, conexion):
     assert "ip_hash" not in sql
 
 
-@pytest.mark.parametrize("limite, codigo", [
-    (1, 200), (20, 200), (100, 200),
-    (0, 422), (101, 422), (-1, 422), ("muchas", 422),
-])
+@pytest.mark.parametrize(
+    "limite, codigo",
+    [
+        (1, 200),
+        (20, 200),
+        (100, 200),
+        (0, 422),
+        (101, 422),
+        (-1, 422),
+        ("muchas", 422),
+    ],
+)
 async def test_el_limite_de_recientes_se_valida(cliente, limite, codigo):
-    respuesta = await cliente.get(
-        "/api/analytics/recent", params={"limit": limite}, auth=BUENAS
-    )
+    respuesta = await cliente.get("/api/analytics/recent", params={"limit": limite}, auth=BUENAS)
     assert respuesta.status_code == codigo
 
 
 async def test_las_fechas_se_devuelven_en_hora_de_venezuela(cliente, conexion):
     import datetime
+
     conexion.respuestas = {
         "LIMIT $1": [
             {
-                "ip_prefix": "93.184.216.0", "browser": "Chrome", "os": "Linux",
-                "device_type": "Desktop", "referer": None, "language": "es",
+                "ip_prefix": "93.184.216.0",
+                "browser": "Chrome",
+                "os": "Linux",
+                "device_type": "Desktop",
+                "referer": None,
+                "language": "es",
                 "is_internal": False,
-                "visited_at": datetime.datetime(2026, 9, 1, 16, 0, 0),   # UTC
+                "visited_at": datetime.datetime(2026, 9, 1, 16, 0, 0),  # UTC
             }
         ]
     }
@@ -279,7 +342,7 @@ async def test_los_ficheros_del_panel_se_sirven_con_su_tipo(cliente):
     css = await cliente.get("/analytics/dashboard.css", auth=BUENAS)
     assert js.headers["content-type"].startswith("text/javascript")
     assert css.headers["content-type"].startswith("text/css")
-    assert "innerHTML" not in js.text        # solo textContent/createElement
+    assert "innerHTML" not in js.text  # solo textContent/createElement
 
 
 async def test_el_resumen_sale_de_una_sola_consulta(cliente, conexion):

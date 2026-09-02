@@ -3,12 +3,14 @@ Endpoints públicos: el tracking que llama el frontend y el health check.
 
 El rate limiting de `/api/track` vive en Traefik (ver docker-compose.yaml).
 """
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..config import Settings
 from ..dependencies import get_settings, get_visits
+from ..logs import LOGGER
 from ..models import HealthResponse, TrackResponse
 from ..privacy import anonymize_ip, client_ip_from_request, is_internal_ip
 from ..repositories.visits import Visit, VisitRepository
@@ -47,7 +49,7 @@ def visit_from_request(request: Request, settings: Settings) -> Visit:
         # redes a ignorar puede cambiar, y lo que interesa es cómo se veía la
         # visita cuando ocurrió.
         is_internal=is_internal_ip(raw_ip, settings.ignore_networks),
-        visited_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        visited_at=datetime.now(UTC).replace(tzinfo=None),
     )
 
 
@@ -62,21 +64,27 @@ async def track_visit(
         await visits.record(visit_from_request(request, settings))
         return TrackResponse(
             status="tracked",
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
-    except Exception as e:
-        # Se registra internamente, pero no se devuelve el detalle al cliente
-        # y nunca se degrada la experiencia del visitante.
-        print(f"❌ Error tracking visit: {e}")
+    except Exception:
+        # Se registra con la traza completa, pero al cliente no se le devuelve
+        # el detalle y nunca se degrada la experiencia del visitante.
+        LOGGER.exception("Error registrando una visita")
         return TrackResponse(status="error")
 
 
 @router.get("/health", response_model=HealthResponse)
 async def health(visits: VisitRepository = Depends(get_visits)):
-    """Health check. No revela detalles internos al cliente."""
+    """
+    Health check público: 200 si el servicio atiende, 503 si no.
+
+    No dice qué componente falla. Es una ruta abierta, la usan el health check
+    de Docker y el monitor externo, y ninguno de los dos necesita el detalle:
+    para eso está /api/analytics/health, que pide credenciales.
+    """
     try:
         await visits.ping()
-    except Exception as e:
-        print(f"❌ Health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service unavailable")
-    return HealthResponse(status="healthy", database="connected")
+    except Exception:
+        LOGGER.exception("Health check fallido")
+        raise HTTPException(status_code=503, detail="Service unavailable") from None
+    return HealthResponse(status="ok")

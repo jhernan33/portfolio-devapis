@@ -15,6 +15,7 @@ Dos decisiones que condicionan todo lo demás:
    pool que necesita, que además es la única forma de probar configuraciones
    distintas dentro del mismo proceso.
 """
+
 import pathlib
 import sys
 
@@ -25,9 +26,9 @@ from httpx import ASGITransport, AsyncClient
 # El backend no es un paquete instalable: se importa desde su directorio.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-import main  # noqa: E402
-from app.config import Settings  # noqa: E402
-
+import main
+from app.config import Settings
+from app.logs import LOGGER
 
 USUARIO = "reclutador"
 CLAVE = "clave-de-prueba"
@@ -51,10 +52,10 @@ class ConexionFalsa:
     """
 
     def __init__(self):
-        self.ejecutados = []      # [(sql, args)] de execute()
-        self.consultados = []     # [(sql, args)] de fetch()/fetchval()/fetchrow()
-        self.respuestas = {}      # subcadena del SQL -> valor a devolver
-        self.error = None         # excepción a lanzar, para simular la BD caída
+        self.ejecutados = []  # [(sql, args)] de execute()
+        self.consultados = []  # [(sql, args)] de fetch()/fetchval()/fetchrow()
+        self.respuestas = {}  # subcadena del SQL -> valor a devolver
+        self.error = None  # excepción a lanzar, para simular la BD caída
 
     def _buscar(self, sql, por_defecto):
         for clave, valor in self.respuestas.items():
@@ -95,8 +96,7 @@ class ConexionFalsa:
 
     @property
     def inserciones(self):
-        return [(sql, args) for sql, args in self.ejecutados
-                if "INSERT INTO cv_visits" in sql]
+        return [(sql, args) for sql, args in self.ejecutados if "INSERT INTO cv_visits" in sql]
 
     def argumentos_insertados(self):
         """Argumentos del último INSERT, o None si no hubo ninguno."""
@@ -115,7 +115,13 @@ class _Adquisicion:
 
 
 class PoolFalso:
-    """Lo justo del pool de asyncpg que usa la aplicación: `acquire()`."""
+    """
+    Lo justo del pool de asyncpg que usa la aplicación.
+
+    `get_size`/`get_idle_size` existen porque el diagnóstico autenticado los
+    consulta: el doble imita la interfaz real contra la que se usa, en lugar de
+    obligar al código de producción a preguntar si el pool los tiene.
+    """
 
     def __init__(self, conexion):
         self.conexion = conexion
@@ -123,10 +129,32 @@ class PoolFalso:
     def acquire(self):
         return _Adquisicion(self.conexion)
 
+    def get_size(self):
+        return 1
+
+    def get_idle_size(self):
+        return 1
+
 
 @pytest.fixture
 def conexion():
     return ConexionFalsa()
+
+
+@pytest.fixture
+def registro(caplog):
+    """
+    Da acceso a lo que registra la aplicación.
+
+    `caplog` por sí solo no lo ve: el logger de la aplicación no propaga al
+    raíz, a propósito, para que uvicorn no duplique cada línea. Aquí se le
+    engancha el handler de caplog y se retira al terminar.
+    """
+    LOGGER.addHandler(caplog.handler)
+    try:
+        yield caplog
+    finally:
+        LOGGER.removeHandler(caplog.handler)
 
 
 @pytest.fixture
@@ -138,6 +166,7 @@ def configurar(monkeypatch, conexion):
     para añadir redes a ignorar) sin que se filtre a los demás: monkeypatch
     revierte `app.state` al terminar.
     """
+
     def _aplicar(**extra):
         valores = {
             "db_user": "test",

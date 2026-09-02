@@ -15,6 +15,7 @@ Principios de seguridad de este servicio:
 estado global de módulo: configuración y pool viven en `app.state` y las
 rutas los reciben por dependencia.
 """
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -22,6 +23,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import load_settings
 from .db import create_pool, init_database
+from .logs import LOGGER, configurar_logging
+from .middleware import SecurityHeadersMiddleware
 from .routes import analytics, public
 
 ALLOWED_ORIGINS = [
@@ -38,7 +41,12 @@ async def lifespan(app: FastAPI):
     # con credenciales por defecto.
     settings = load_settings()
     pool = await create_pool(settings)
-    print("✅ Database pool created")
+    LOGGER.info(
+        "Pool de conexiones creado contra %s:%s/%s",
+        settings.db_host,
+        settings.db_port,
+        settings.db_name,
+    )
 
     app.state.settings = settings
     app.state.pool = pool
@@ -48,10 +56,12 @@ async def lifespan(app: FastAPI):
     yield
 
     await pool.close()
-    print("🔴 Database pool closed")
+    LOGGER.info("Pool de conexiones cerrado")
 
 
 def create_app() -> FastAPI:
+    configurar_logging()
+
     app = FastAPI(
         title="CV Analytics API",
         description="Sistema de tracking para el CV de José Hernán Varela",
@@ -63,6 +73,9 @@ def create_app() -> FastAPI:
         redoc_url=None,
         openapi_url=None,
     )
+
+    # Cabeceras de seguridad en todas las respuestas del backend.
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # CORS restringido al dominio propio
     app.add_middleware(

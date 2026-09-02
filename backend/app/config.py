@@ -10,9 +10,12 @@ nada lo delatara.
 arranque y viaja como valor. Nada la modifica después, y los tests construyen
 la suya sin tocar variables de entorno.
 """
+
 import ipaddress
 import os
 from dataclasses import dataclass
+
+from .logs import LOGGER
 
 # Variables sin las que el servicio no debe arrancar.
 REQUIRED_ENV = ("DB_PASSWORD", "ANALYTICS_USER", "ANALYTICS_PASSWORD", "ANALYTICS_IP_SALT")
@@ -66,7 +69,7 @@ def parse_ignore_networks(raw: str) -> list:
         try:
             redes.append(ipaddress.ip_network(entrada, strict=False))
         except ValueError:
-            print(f"⚠️  ANALYTICS_IGNORE_NETWORKS: '{entrada}' no es una red válida, se ignora")
+            LOGGER.warning("ANALYTICS_IGNORE_NETWORKS: %r no es una red válida, se ignora", entrada)
     return redes
 
 
@@ -75,8 +78,9 @@ def load_settings() -> Settings:
     missing = [name for name in REQUIRED_ENV if not os.getenv(name)]
     if missing:
         raise RuntimeError(
-            "Faltan variables de entorno obligatorias: " + ", ".join(missing) +
-            ". Defínelas en el archivo .env (ver .env.example)."
+            "Faltan variables de entorno obligatorias: "
+            + ", ".join(missing)
+            + ". Defínelas en el archivo .env (ver .env.example)."
         )
 
     return Settings(

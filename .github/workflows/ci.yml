@@ -240,6 +240,25 @@ jobs:
           python -m compileall -q backend/main.py backend/migrar_user_agents.py backend/app
           pip install -r backend/requirements-dev.txt
 
+      # Clean code sin herramienta que lo vigile se erosiona: el criterio se
+      # acaba discutiendo en cada revisión en lugar de estar escrito en
+      # backend/ruff.toml. `make lint` ejecuta esto mismo en local.
+      - name: Estilo (ruff)
+        working-directory: backend
+        run: |
+          ruff check --output-format github .
+          ruff format --check .
+
+      # `print` no tiene nivel, ni marca de tiempo, ni se puede silenciar ni
+      # subir a depuración. El servicio estuvo meses en bucle de reinicio con
+      # el motivo escrito en un print, perdido entre el ruido de uvicorn.
+      - name: El backend registra con logging, no con print
+        run: |
+          if grep -rn '^\s*print(' backend/app backend/main.py; then
+            echo "::error::Usa el LOGGER de app/logs.py en lugar de print()"
+            exit 1
+          fi
+
       # Los tests no necesitan PostgreSQL: el pool se sustituye por un doble en
       # memoria (backend/tests/conftest.py). Una suite que exige levantar un
       # contenedor acaba sin ejecutarse, y una suite que no se ejecuta no
@@ -385,12 +404,17 @@ jobs:
 
           for servicio, cfg in compose.get("services", {}).items():
               etiquetas = cfg.get("labels") or []
-              reglas, prioridades = {}, {}
+              reglas, prioridades, middlewares = {}, {}, {}
+              limitadores = set()
               for e in etiquetas:
                   if m := re.match(r"traefik\.http\.routers\.([^.]+)\.rule=(.*)", e, re.S):
                       reglas[m.group(1)] = m.group(2)
                   elif m := re.match(r"traefik\.http\.routers\.([^.]+)\.priority=(\d+)$", e):
                       prioridades[m.group(1)] = int(m.group(2))
+                  elif m := re.match(r"traefik\.http\.routers\.([^.]+)\.middlewares=(.*)", e):
+                      middlewares[m.group(1)] = m.group(2)
+                  elif m := re.match(r"traefik\.http\.middlewares\.([^.]+)\.ratelimit\.", e):
+                      limitadores.add(m.group(1))
 
               for router, regla in sorted(reglas.items()):
                   # Solo importan los routers que compiten con el panel: uno que
@@ -408,6 +432,16 @@ jobs:
                                     f"y el panel de Traefik vale {PANEL}")
                   else:
                       print(f"OK  {servicio}/{router}: priority {p} > {PANEL}  {rutas}")
+
+                  # Todo lo que cuelga de /api es alcanzable desde internet sin
+                  # pasar por nada más: el tracking porque es público por
+                  # diseño, y las estadísticas porque HTTP Basic sin límite de
+                  # intentos es fuerza bruta gratis.
+                  usados = middlewares.get(router, "")
+                  if not any(f"{m}@" in usados or usados == m
+                             for m in limitadores) and "ratelimit" not in usados:
+                      fallos.append(f"{servicio}/{router} sirve {rutas} sin rate limit; "
+                                    f"middlewares declarados: {usados or 'ninguno'}")
 
           if not revisados:
               sys.exit("::error::Ningún router reclama /api ni /dashboard. "

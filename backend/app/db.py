@@ -4,11 +4,13 @@ Pool de conexiones, esquema y migraciones de instalaciones anteriores.
 El esquema vive aquí y en database/init-analytics.sql, y tienen que coincidir
 (lo vigila la CI). Si cambias una columna, cámbiala en los dos.
 """
+
 import ipaddress
 
 import asyncpg
 
 from .config import Settings
+from .logs import LOGGER
 from .privacy import anonymize_ip
 
 DDL_SCRIPT = """
@@ -155,7 +157,10 @@ async def backfill_internal_flag(conn, ignore_networks) -> int:
             continue
         ip = red.network_address
         interna = (
-            ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
             or any(red.overlaps(otra) for otra in ignore_networks)
         )
         if interna:
@@ -164,9 +169,7 @@ async def backfill_internal_flag(conn, ignore_networks) -> int:
     if not marcar:
         return 0
 
-    await conn.execute(
-        "UPDATE cv_visits SET is_internal = TRUE WHERE id = ANY($1::int[])", marcar
-    )
+    await conn.execute("UPDATE cv_visits SET is_internal = TRUE WHERE id = ANY($1::int[])", marcar)
     return len(marcar)
 
 
@@ -174,20 +177,27 @@ async def init_database(pool, settings: Settings) -> None:
     """Inicializa el esquema y migra instalaciones anteriores."""
     async with pool.acquire() as conn:
         await conn.execute(DDL_SCRIPT)
-        print("✅ Database schema initialized")
+        LOGGER.info("Esquema de la base de datos inicializado")
 
         migrated = await backfill_anonymized_ips(conn, settings.ip_salt)
         if migrated:
-            print(f"✅ {migrated} visitas antiguas anonimizadas")
-            print("   Ejecuta database/migrate-anonymize-ips.sql para purgar ip_address")
+            LOGGER.info(
+                "%d visitas antiguas anonimizadas; ejecuta "
+                "database/migrate-anonymize-ips.sql para purgar ip_address",
+                migrated,
+            )
 
         internas = await backfill_internal_flag(conn, settings.ignore_networks)
         if internas:
-            print(f"✅ {internas} visitas marcadas como tráfico interno")
+            LOGGER.info("%d visitas marcadas como tráfico interno", internas)
 
         if settings.ignore_networks:
-            redes = ", ".join(str(r) for r in settings.ignore_networks)
-            print(f"ℹ️  Redes excluidas del conteo: {redes}")
+            LOGGER.info(
+                "Redes excluidas del conteo: %s",
+                ", ".join(str(r) for r in settings.ignore_networks),
+            )
         else:
-            print("ℹ️  ANALYTICS_IGNORE_NETWORKS sin definir: solo se excluyen "
-                  "los rangos privados, no la IP pública de este servidor")
+            LOGGER.warning(
+                "ANALYTICS_IGNORE_NETWORKS sin definir: solo se excluyen los "
+                "rangos privados, no la IP pública de este servidor"
+            )

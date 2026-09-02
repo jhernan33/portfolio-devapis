@@ -15,10 +15,14 @@ Professional CV/Portfolio landing page plus a self-hosted visit-tracking analyti
 |---|---|---|
 | `/cv` | GET | public — static CV site |
 | `/api/track` | POST | public (Traefik rate limit: 10/min, burst 20) |
-| `/health` | GET | public — backend + DB health |
+| `/health` | GET | public — 200 if the service answers, 503 if not. Says nothing about which component failed |
 | `/api/analytics` | GET | **HTTP Basic** — stats JSON |
 | `/api/analytics/recent` | GET | **HTTP Basic** — recent visits JSON |
-| `/analytics` | GET | **HTTP Basic** — HTML dashboard |
+| `/api/analytics/health` | GET | **HTTP Basic** — detailed diagnostics (row counts, pool) |
+| `/analytics` | GET | **HTTP Basic** — HTML dashboard (+ its `dashboard.css` / `.js`) |
+
+Both analytics routers are rate-limited in Traefik: 10/min on `/api/track`, 15/min on
+the private ones — constant-time credential comparison stops timing attacks, not volume.
 
 Auth is enforced **in the application** (`require_analytics_auth` in `backend/app/security.py`),
 not in Traefik, so protection is versioned and survives container recreation.
