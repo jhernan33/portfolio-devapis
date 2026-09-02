@@ -6,7 +6,7 @@
 # (uid 101) y no como root, así que escucha en 8080, que no requiere
 # CAP_NET_BIND_SERVICE. Traefik habla con el contenedor por el puerto que
 # declara la etiqueta loadbalancer.server.port; el visitante no lo ve.
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 
 # Metadatos
 LABEL org.opencontainers.image.authors="Jose Hernan Varela"
