@@ -787,8 +787,8 @@ strong {
 	font-weight: 500;
 }
 
-/* Tipo de vínculo laboral. Existe para explicar los empleos solapados de
-   2019-2023: sin esta línea, cuatro puestos simultáneos se leen como error. */
+/* Tipo de vínculo laboral. Existe para explicar los empleos solapados desde
+   2019: sin esta línea, varios puestos simultáneos se leen como error. */
 .timeline__engagement {
 	font-size: var(--text-xs);
 	color: var(--text-tertiary);

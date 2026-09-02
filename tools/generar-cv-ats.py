@@ -24,8 +24,8 @@ formatos vienen del mismo origen y no pueden divergir.
     python3 tools/generar-cv-ats.py --marcadores   # borrador con [CONFIRMAR: ___]
 
 La experiencia se presenta en dos bloques: el puesto principal, y debajo los
-cuatro compromisos que fueron SIMULTÁNEOS a él. Leídos en una lista corrida,
-cinco empleos que se solapan entre 2019 y 2024 parecen un error de fechas, y
+cinco compromisos que fueron SIMULTÁNEOS a él. Leídos en una lista corrida,
+seis empleos que se solapan desde 2019 parecen un error de fechas, y
 es de las primeras cosas que un reclutador descarta sin preguntar.
 
 Todo dato factual sale de PERFIL-CANONICO.md. No inventar nada aquí, y las
@@ -89,6 +89,22 @@ METRICAS = {
         # --- Portafolio propio ---
         "anio_infra": "2024",
         "despliegue_propio": "18 s",
+
+        # --- Plataforma MLS inmobiliaria · contado sobre el repositorio el 2026-09-02 ---
+        # Todo sale de comandos que caben en 20 segundos frente a un entrevistador:
+        # routers = archivos en src/routers; endpoints = llamadas router.<verbo>(
+        # en esos archivos; modelos = líneas "model " en prisma/schema.prisma;
+        # migraciones = directorios en prisma/migrations (79 entradas, 4 son
+        # archivos sueltos); tests y suites = la línea final de `npx jest`
+        # (2.154 pasan, 6 se saltan); tests de seguridad = archivos en
+        # tests/security/. Al re-medir, actualizar aquí y en el perfil canónico.
+        "re_endpoints": "353",
+        "re_routers": "57",
+        "re_modelos": "53",
+        "re_migraciones": "75",
+        "re_tests_seguridad": "18",
+        "re_tests": "2.154",
+        "re_suites": "163",
     },
     "en": {
         "consultas_antes": "over 9,000 queries and 62 s",
@@ -96,6 +112,13 @@ METRICAS = {
         "microservicios": "3",
         "anio_infra": "2024",
         "despliegue_propio": "18 s",
+        "re_endpoints": "353",
+        "re_routers": "57",
+        "re_modelos": "53",
+        "re_migraciones": "75",
+        "re_tests_seguridad": "18",
+        "re_tests": "2,154",
+        "re_suites": "163",
     },
 }
 
@@ -145,9 +168,9 @@ ES = {
     # reconocía, y quien lo abría veía un descuido de idioma.
     "stack_etiqueta": "Tecnologías",
     "experiencia_titulo": "EXPERIENCIA PROFESIONAL",
-    # El puesto principal va solo y primero. Los otros cuatro fueron simultáneos a
-    # él, no consecutivos: leídos en una lista corrida, cinco empleos que se
-    # solapan entre 2019 y 2024 parecen un error de fechas o una exageración, y
+    # El puesto principal va solo y primero. Los otros cinco fueron simultáneos a
+    # él, no consecutivos: leídos en una lista corrida, seis empleos que se
+    # solapan desde 2019 parecen un error de fechas o una exageración, y
     # es lo primero que un reclutador descarta sin preguntar.
     "experiencia": [
         {
@@ -173,10 +196,60 @@ ES = {
     ],
     "experiencia_paralela_titulo": "Experiencia paralela / freelance",
     "experiencia_paralela_nota": (
-        "Los cuatro compromisos siguientes se desarrollaron de forma simultánea al puesto de "
+        "Los cinco compromisos siguientes se desarrollaron de forma simultánea al puesto de "
         "Jefe de Informática, no como empleos consecutivos."
     ),
     "experiencia_paralela": [
+        {
+            "puesto": "Desarrollador Backend",
+            "empresa": "Plataforma MLS inmobiliaria (producto propio en producción)",
+            "fechas": "08/2025 – Presente",
+            "vinculo": "Producto propio, en paralelo a PCVARELAVENEZUELA",
+            "puntos": [
+                {
+                    "base": "API REST multi-inquilino en Node.js 22, Express 5 y PostgreSQL con"
+                            " Prisma, desplegada tras Traefik en una imagen Docker distroless"
+                            " sin shell y sin root.",
+                    "cuantificada": "API REST multi-inquilino en Node.js 22, Express 5 y PostgreSQL"
+                                    " con Prisma: {re_endpoints} endpoints en {re_routers} routers,"
+                                    " {re_modelos} modelos y {re_migraciones} migraciones"
+                                    " incrementales, desplegada tras Traefik en una imagen Docker"
+                                    " distroless sin shell y sin root.",
+                    "metricas": ["re_endpoints", "re_routers", "re_modelos", "re_migraciones"],
+                },
+                {
+                    "base": "Autorización multi-inquilino con RBAC en base de datos y alcance por"
+                            " empresa y agente derivado del JWT; las fugas entre inquilinos se"
+                            " cerraron como clase (listas blancas en la proyección, DTOs de"
+                            " salida y 404 genéricos) y las fijan tests de seguridad.",
+                    "cuantificada": "Autorización multi-inquilino con RBAC en base de datos y alcance"
+                                    " por empresa y agente derivado del JWT; las fugas entre"
+                                    " inquilinos se cerraron como clase (listas blancas en la"
+                                    " proyección, DTOs de salida y 404 genéricos) y las fijan"
+                                    " {re_tests_seguridad} tests de seguridad.",
+                    "metricas": ["re_tests_seguridad"],
+                },
+                "Dos pasarelas de pago en paralelo (Stripe y PayU) con webhooks de cuerpo crudo,"
+                " suscripciones recurrentes e idempotencia por cabecera en las operaciones"
+                " mutantes.",
+                "Caché Redis con ETag/304, TTL según la naturaleza del dato e invalidación"
+                " dirigida desde cada escritura; rate limiting en tres capas (Traefik por IP,"
+                " techo global y limitadores por ruta con Redis).",
+                "Ciclo de identidad completo: JWT con lista negra, revocación global de sesiones"
+                " al cambiar la contraseña, 2FA por OTP y Google Sign-In con verificación del ID"
+                " token contra JWKS.",
+                {
+                    "base": "Suite de tests con Jest y Supertest, con tests guardrail que fallan"
+                            " si reaparece un patrón arquitectónico ya eliminado.",
+                    "cuantificada": "Suite de {re_tests} tests (Jest y Supertest, {re_suites}"
+                                    " suites) con tests guardrail que fallan si reaparece un"
+                                    " patrón arquitectónico ya eliminado.",
+                    "metricas": ["re_tests", "re_suites"],
+                },
+            ],
+            "stack": "Node.js, Express 5, PostgreSQL, Prisma, Redis, Socket.IO, Docker, Traefik,"
+                     " Stripe, PayU, Jest",
+        },
         {
             "puesto": "Desarrollador Backend",
             "empresa": "Gsamples-Global (Chile)",
@@ -244,8 +317,8 @@ ES = {
     ],
     "habilidades_titulo": "HABILIDADES TÉCNICAS",
     "habilidades": [
-        ("Lenguajes", "Python, JavaScript (ES6+), PHP, SQL / PL-pgSQL"),
-        ("Frameworks backend", "Django, Django REST Framework, FastAPI, Laravel, Lumen, Express.js"),
+        ("Lenguajes", "Python, JavaScript (Node.js, ES6+), PHP, SQL / PL-pgSQL"),
+        ("Frameworks backend", "Django, Django REST Framework, FastAPI, Express 5, Prisma, Laravel, Lumen"),
         ("Frontend", "Vue.js, HTML5, CSS3, JavaScript sin dependencias"),
         ("Bases de datos", "PostgreSQL, PostGIS, MySQL, Redis, SQL Server"),
         ("Infraestructura", "Docker, Docker Compose, Traefik, Nginx, Linux (Ubuntu, Debian, Fedora), Git, Shell scripting"),
@@ -364,10 +437,59 @@ EN = {
     ],
     "experiencia_paralela_titulo": "Concurrent / Freelance Engagements",
     "experiencia_paralela_nota": (
-        "The four engagements below ran concurrently with the IT Manager role, not as "
+        "The five engagements below ran concurrently with the IT Manager role, not as "
         "consecutive positions."
     ),
     "experiencia_paralela": [
+        {
+            "puesto": "Backend Developer",
+            "empresa": "Real estate MLS platform (own product in production)",
+            "fechas": "Aug 2025 – Present",
+            "vinculo": "Own product, alongside PCVARELAVENEZUELA",
+            "puntos": [
+                {
+                    "base": "Multi-tenant REST API on Node.js 22, Express 5 and PostgreSQL with"
+                            " Prisma, deployed behind Traefik in a distroless, shell-less,"
+                            " non-root Docker image.",
+                    "cuantificada": "Multi-tenant REST API on Node.js 22, Express 5 and PostgreSQL"
+                                    " with Prisma: {re_endpoints} endpoints across {re_routers}"
+                                    " routers, {re_modelos} models and {re_migraciones} incremental"
+                                    " migrations, deployed behind Traefik in a distroless,"
+                                    " shell-less, non-root Docker image.",
+                    "metricas": ["re_endpoints", "re_routers", "re_modelos", "re_migraciones"],
+                },
+                {
+                    "base": "Multi-tenant authorisation with database-backed RBAC and company- and"
+                            " agent-level scope derived from the JWT; cross-tenant leaks were"
+                            " closed as a class (whitelisted projections, output DTOs and generic"
+                            " 404s) and are pinned by security tests.",
+                    "cuantificada": "Multi-tenant authorisation with database-backed RBAC and"
+                                    " company- and agent-level scope derived from the JWT;"
+                                    " cross-tenant leaks were closed as a class (whitelisted"
+                                    " projections, output DTOs and generic 404s) and are pinned by"
+                                    " {re_tests_seguridad} security tests.",
+                    "metricas": ["re_tests_seguridad"],
+                },
+                "Two payment gateways in parallel (Stripe and PayU) with raw-body webhooks,"
+                " recurring subscriptions and header-based idempotency on mutating operations.",
+                "Redis cache with ETag/304, TTL by data type and targeted invalidation on every"
+                " write; three-layer rate limiting (Traefik per IP, a global ceiling and"
+                " per-route limiters backed by Redis).",
+                "Full identity lifecycle: JWT with blacklist, global session revocation on"
+                " password change, OTP-based 2FA and Google Sign-In with ID token verification"
+                " against JWKS.",
+                {
+                    "base": "Test suite with Jest and Supertest, including guardrail tests that"
+                            " fail if an eliminated architectural pattern reappears.",
+                    "cuantificada": "Suite of {re_tests} tests (Jest and Supertest, {re_suites}"
+                                    " suites), including guardrail tests that fail if an"
+                                    " eliminated architectural pattern reappears.",
+                    "metricas": ["re_tests", "re_suites"],
+                },
+            ],
+            "stack": "Node.js, Express 5, PostgreSQL, Prisma, Redis, Socket.IO, Docker, Traefik,"
+                     " Stripe, PayU, Jest",
+        },
         {
             "puesto": "Backend Developer",
             "empresa": "Gsamples-Global (Chile)",
@@ -434,8 +556,8 @@ EN = {
     ],
     "habilidades_titulo": "TECHNICAL SKILLS",
     "habilidades": [
-        ("Languages", "Python, JavaScript (ES6+), PHP, SQL / PL-pgSQL"),
-        ("Backend frameworks", "Django, Django REST Framework, FastAPI, Laravel, Lumen, Express.js"),
+        ("Languages", "Python, JavaScript (Node.js, ES6+), PHP, SQL / PL-pgSQL"),
+        ("Backend frameworks", "Django, Django REST Framework, FastAPI, Express 5, Prisma, Laravel, Lumen"),
         ("Frontend", "Vue.js, HTML5, CSS3, dependency-free JavaScript"),
         ("Databases", "PostgreSQL, PostGIS, MySQL, Redis, SQL Server"),
         ("Infrastructure", "Docker, Docker Compose, Traefik, Nginx, Linux (Ubuntu, Debian, Fedora), Git, shell scripting"),

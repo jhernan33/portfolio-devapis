@@ -207,7 +207,7 @@
 		<section id="experience" class="section" aria-labelledby="exp-title">
 			<header class="section__header">
 				<h2 id="exp-title" class="section__title">Professional Experience</h2>
-				<p class="section__subtitle">15 years in IT. Between 2019 and 2024 I combined my full-time role with freelance, consulting and contract work.</p>
+				<p class="section__subtitle">15 years in IT. Since 2019 I have combined my full-time role with freelance, consulting and contract work and, since 2025, a product of my own in production.</p>
 			</header>
 			<div class="timeline">
 				<article class="timeline__item">
@@ -234,6 +234,37 @@
 							<span class="chip">Linux</span>
 							<span class="chip">Traefik</span>
 							<span class="chip">Nginx</span>
+						</div>
+					</div>
+				</article>
+
+				<article class="timeline__item">
+					<div class="timeline__marker"></div>
+					<div class="timeline__content">
+						<header class="timeline__header">
+							<div>
+								<h3 class="timeline__role">Backend Developer</h3>
+								<p class="timeline__company">Real estate MLS platform</p>
+								<p class="timeline__engagement">Own product in production · alongside PCVARELAVENEZUELA</p>
+							</div>
+							<time class="timeline__period">08/2025 - Present</time>
+						</header>
+						<ul class="timeline__achievements">
+							<li>Multi-tenant REST API on Node.js 22, Express 5 and PostgreSQL with Prisma: 353 endpoints across 57 routers over 53 data models</li>
+							<li>RBAC authorisation with company- and agent-level scope derived from the JWT; cross-tenant leaks were closed as a class and are pinned by 18 security tests</li>
+							<li>Two payment gateways in parallel (Stripe and PayU) with webhooks, recurring subscriptions and header-based idempotency</li>
+							<li>Redis cache with ETag and targeted invalidation on every write, plus three-layer rate limiting: Traefik, a global ceiling and per route</li>
+							<li>Suite of 2,154 tests with Jest and Supertest, including guardrail tests that fail if an eliminated pattern reappears; distroless, non-root Docker image</li>
+						</ul>
+						<div class="timeline__stack">
+							<span class="chip">Node.js</span>
+							<span class="chip">Express 5</span>
+							<span class="chip">PostgreSQL</span>
+							<span class="chip">Prisma</span>
+							<span class="chip">Redis</span>
+							<span class="chip">Docker</span>
+							<span class="chip">Traefik</span>
+							<span class="chip">Stripe</span>
 						</div>
 					</div>
 				</article>
@@ -383,7 +414,7 @@
 						<li>Django / Django REST Framework</li>
 						<li>FastAPI</li>
 						<li>Laravel / Lumen</li>
-						<li>Express.js / Vue.js</li>
+						<li>Express 5 / Prisma / Vue.js</li>
 					</ul>
 				</article>
 

@@ -204,7 +204,7 @@
 		<section id="experiencia" class="section" aria-labelledby="exp-title">
 			<header class="section__header">
 				<h2 id="exp-title" class="section__title">Experiencia Profesional</h2>
-				<p class="section__subtitle">15 años en TI. Entre 2019 y 2024 compaginé el puesto de tiempo completo con trabajo freelance, consultoría y contrato.</p>
+				<p class="section__subtitle">15 años en TI. Desde 2019 compagino el puesto de tiempo completo con trabajo freelance, consultoría, contrato y, desde 2025, un producto propio en producción.</p>
 			</header>
 			<div class="timeline">
 				<article class="timeline__item">
@@ -231,6 +231,37 @@
 							<span class="chip">Linux</span>
 							<span class="chip">Traefik</span>
 							<span class="chip">Nginx</span>
+						</div>
+					</div>
+				</article>
+
+				<article class="timeline__item">
+					<div class="timeline__marker"></div>
+					<div class="timeline__content">
+						<header class="timeline__header">
+							<div>
+								<h3 class="timeline__role">Desarrollador Backend</h3>
+								<p class="timeline__company">Plataforma MLS inmobiliaria</p>
+								<p class="timeline__engagement">Producto propio en producción · en paralelo a PCVARELAVENEZUELA</p>
+							</div>
+							<time class="timeline__period">08/2025 - Presente</time>
+						</header>
+						<ul class="timeline__achievements">
+							<li>API REST multi-inquilino en Node.js 22, Express 5 y PostgreSQL con Prisma: 353 endpoints en 57 routers sobre 53 modelos de datos</li>
+							<li>Autorización con RBAC y alcance por empresa y agente derivado del JWT; las fugas entre inquilinos se cerraron como clase y las fijan 18 tests de seguridad</li>
+							<li>Dos pasarelas de pago en paralelo (Stripe y PayU) con webhooks, suscripciones recurrentes e idempotencia por cabecera</li>
+							<li>Caché Redis con ETag e invalidación dirigida desde cada escritura, y rate limiting en tres capas: Traefik, techo global y por ruta</li>
+							<li>Suite de 2.154 tests con Jest y Supertest, incluidos tests guardrail que fallan si reaparece un patrón ya eliminado; imagen Docker distroless sin root</li>
+						</ul>
+						<div class="timeline__stack">
+							<span class="chip">Node.js</span>
+							<span class="chip">Express 5</span>
+							<span class="chip">PostgreSQL</span>
+							<span class="chip">Prisma</span>
+							<span class="chip">Redis</span>
+							<span class="chip">Docker</span>
+							<span class="chip">Traefik</span>
+							<span class="chip">Stripe</span>
 						</div>
 					</div>
 				</article>
@@ -380,7 +411,7 @@
 						<li>Django / Django REST Framework</li>
 						<li>FastAPI</li>
 						<li>Laravel / Lumen</li>
-						<li>Express.js / Vue.js</li>
+						<li>Express 5 / Prisma / Vue.js</li>
 					</ul>
 				</article>
 
