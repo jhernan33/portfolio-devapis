@@ -59,6 +59,16 @@
         }
     }
 
+    // Por qué una visita no cuenta en las estadísticas de arriba. Se dice en
+    // palabras y no con tres columnas de sí/no: lo que importa al mirar la
+    // tabla es si esa fila es una persona nueva o no, y por qué.
+    function describirVisita(v) {
+        if (v.is_internal) return 'interna';
+        if (v.is_bot) return 'rastreador';
+        if (v.is_repeat) return 'recarga';
+        return 'sí';
+    }
+
     function formatDate(value) {
         if (!value) return '—';
         const date = new Date(value);
@@ -83,14 +93,23 @@
             renderTable('devices-table', ['Dispositivo', 'Visitas'],
                 analytics.device_stats.map(d => [d.device_type, d.count]));
 
+            const IDIOMAS = { '/cv': 'Español', '/cv/en': 'Inglés' };
+            renderTable('pages-table', ['Versión', 'Visitas'],
+                analytics.page_stats.map(p => [
+                    p.page === null ? 'Sin registrar' : (IDIOMAS[p.page] || p.page),
+                    p.visits
+                ]));
+
             // Las visitas recientes SÍ incluyen el tráfico interno, marcado
             // en su propia columna. Las estadísticas de arriba no lo cuentan.
             // Sin esta tabla no habría forma de distinguir "no llega nada"
             // de "llega y se está descartando".
-            renderTable('recent-table', ['Red', 'Navegador', 'OS', 'Dispositivo', 'Origen', 'Fecha'],
+            renderTable('recent-table',
+                ['Red', 'Navegador', 'OS', 'Dispositivo', 'Versión', 'Cuenta', 'Fecha'],
                 recent.visits.map(v => [
                     v.ip_prefix, v.browser, v.os, v.device_type,
-                    v.is_internal ? 'interna' : 'externa',
+                    v.page === null ? '—' : v.page,
+                    describirVisita(v),
                     formatDate(v.visited_at)
                 ]));
         } catch (error) {

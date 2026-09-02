@@ -26,6 +26,7 @@ import pathlib
 from .config import Settings
 from .logs import LOGGER
 from .privacy import anonymize_ip
+from .useragent import es_bot
 
 DIRECTORIO = pathlib.Path(__file__).resolve().parent.parent / "migrations"
 
@@ -69,9 +70,31 @@ async def _anonimizar_ips_heredadas(conn, settings: Settings) -> str:
     return f"{len(filas)} visitas anonimizadas; ya se puede purgar ip_address"
 
 
+async def _marcar_bots_heredados(conn, _settings: Settings) -> str:
+    """
+    Reclasifica las visitas ya guardadas usando la misma función que el
+    servicio, no una copia en SQL: mantener dos veces la lista de rastreadores
+    es garantizar que se separen.
+
+    Las filas cuyo `user_agent` ya se depuró por retención no se pueden
+    clasificar y se quedan como están. Es preferible a inventar: lo guardado,
+    aunque sea impreciso, es más de lo que se puede recuperar.
+    """
+    filas = await conn.fetch(
+        "SELECT id, user_agent FROM cv_visits WHERE NOT is_bot AND user_agent IS NOT NULL"
+    )
+    marcar = [f["id"] for f in filas if es_bot(f["user_agent"])]
+    if not marcar:
+        return "ninguna visita antigua era un rastreador"
+
+    await conn.execute("UPDATE cv_visits SET is_bot = TRUE WHERE id = ANY($1::int[])", marcar)
+    return f"{len(marcar)} visitas antiguas marcadas como rastreador"
+
+
 # Comparten numeración con los ficheros .sql y se ordenan junto a ellos.
 MIGRACIONES_PYTHON = {
     "0003_anonimizar_ips_heredadas": _anonimizar_ips_heredadas,
+    "0005_marcar_bots_heredados": _marcar_bots_heredados,
 }
 
 

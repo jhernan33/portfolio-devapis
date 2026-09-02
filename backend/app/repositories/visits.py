@@ -3,7 +3,8 @@ Repositorio de visitas: el único sitio que habla SQL con `cv_visits`.
 
 Separar el SQL de las rutas permite probar cada capa por su lado y deja las
 reglas de negocio en un solo lugar. La más importante: toda estadística
-agregada filtra el tráfico propio (`EXTERNAS`). En la primera medición con
+agregada filtra lo que no es una persona leyendo el CV (`PERSONAS`) y, cuando
+cuenta visitas, también las recargas (`VISITAS`). En la primera medición con
 tráfico real, el 70% de las "visitas" era navegación propia o comprobaciones
 lanzadas desde el propio servidor.
 
@@ -30,31 +31,48 @@ from ..models import (
     DiagnosticsResponse,
     NetworkCount,
     OsCount,
+    PageCount,
     RecentResponse,
     RecentVisit,
     Summary,
 )
 from ..timeutils import to_display_time
 
-# Toda consulta agregada lleva este filtro. Definido una vez para que no se
-# pueda olvidar en una consulta nueva.
-EXTERNAS = "NOT is_internal"
+# Los dos filtros de los agregados, definidos una vez para que no se puedan
+# olvidar en una consulta nueva.
+#
+# PERSONAS  — lo que no es tráfico propio ni un rastreador. Es la base de todo:
+#             visitantes únicos, navegadores, dispositivos, redes.
+# VISITAS   — además, sin recargas. Una persona que abre el CV, lo recarga y
+#             abre una segunda pestaña ha hecho una visita, no tres.
+PERSONAS = "NOT is_internal AND NOT is_bot"
+VISITAS = f"{PERSONAS} AND NOT is_repeat"
+
+# Ventana en la que una segunda petición del mismo visitante cuenta como la
+# misma visita. Media hora es lo que tarda alguien en volver a la pestaña.
+VENTANA_RECARGA = "30 minutes"
 
 
 @dataclass(frozen=True)
 class Visit:
     """Una visita ya anonimizada, lista para persistir. El orden de los campos
-    es el orden de las columnas del INSERT."""
+    es el orden de los parámetros del INSERT.
+
+    `is_repeat` no está aquí: lo calcula la propia base al insertar, porque
+    depende de lo que ya hay guardado."""
 
     ip_prefix: str | None
     ip_hash: str | None
+    visitor_hash: str | None
     user_agent: str
     browser: str
     os: str
     device_type: str
     referer: str | None
     language: str | None
+    page: str | None
     is_internal: bool
+    is_bot: bool
     visited_at: datetime
 
 
@@ -88,6 +106,8 @@ class VisitRepository:
                 SELECT
                     COUNT(*) AS total,
                     COUNT(*) FILTER (WHERE is_internal) AS internas,
+                    COUNT(*) FILTER (WHERE is_bot) AS bots,
+                    COUNT(*) FILTER (WHERE is_repeat) AS recargas,
                     MAX(visited_at) AS ultima
                 FROM cv_visits
             """)
@@ -96,6 +116,8 @@ class VisitRepository:
             status="healthy",
             visits_total=fila["total"],
             visits_internal=fila["internas"],
+            visits_bots=fila["bots"],
+            visits_repeat=fila["recargas"],
             # `or None`: con la tabla vacía no hay última visita, y el doble de
             # los tests devuelve 0 en lugar de una fecha.
             last_visit=self._local(fila["ultima"] or None),
@@ -104,13 +126,35 @@ class VisitRepository:
         )
 
     async def record(self, visit: Visit) -> None:
+        """
+        Guarda la visita y deja que la base decida si es una recarga.
+
+        El cálculo va en el INSERT y no en Python a propósito: preguntar antes
+        y escribir después son dos viajes y una ventana en la que dos
+        peticiones simultáneas se declaran la primera cada una. Aquí es una
+        sola sentencia y la respuesta sale de lo que hay guardado en ese
+        instante. Con visitor_hash a NULL —IP ilegible— la comparación nunca
+        casa y la visita cuenta como nueva, que es el lado prudente.
+        """
         async with self._pool.acquire() as conn:
             await conn.execute(
-                """
+                f"""
                 INSERT INTO cv_visits (
-                    ip_prefix, ip_hash, user_agent, browser, os,
-                    device_type, referer, language, is_internal, visited_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    ip_prefix, ip_hash, visitor_hash, user_agent, browser, os,
+                    device_type, referer, language, page, is_internal, is_bot,
+                    visited_at, is_repeat
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                    EXISTS (
+                        SELECT 1 FROM cv_visits
+                        WHERE visitor_hash = $3
+                          -- El cast es obligatorio: sin él PostgreSQL no puede
+                          -- inferir el tipo de $13 en esta posición y deduce
+                          -- `interval`, con lo que la comparación no existe y
+                          -- todo el INSERT falla al prepararse.
+                          AND visited_at > $13::timestamptz - INTERVAL '{VENTANA_RECARGA}'
+                    )
+                )
                 """,
                 *astuple(visit),
             )
@@ -123,19 +167,24 @@ class VisitRepository:
             resumen = await conn.fetchrow(
                 f"""
                 SELECT
-                    COUNT(*) AS total_visits,
-                    COUNT(DISTINCT ip_hash) AS unique_visitors,
-                    COUNT(*) FILTER (WHERE visited_at > NOW() - INTERVAL '7 days')
-                        AS recent_visits_7d,
+                    COUNT(*) FILTER (WHERE NOT is_repeat) AS total_visits,
+                    -- COALESCE: las filas anteriores a la huella de visitante
+                    -- solo tienen ip_hash, y contarlas como NULL colapsaría
+                    -- todo el histórico en un único visitante.
+                    COUNT(DISTINCT COALESCE(visitor_hash, ip_hash)) AS unique_visitors,
+                    COUNT(*) FILTER (
+                        WHERE NOT is_repeat AND visited_at > NOW() - INTERVAL '7 days'
+                    ) AS recent_visits_7d,
                     -- "Hoy" en la zona del titular. Con `visited_at::date` era
                     -- el día de la sesión de PostgreSQL, y una visita de las
                     -- ocho de la tarde en Caracas ya contaba como de mañana.
                     COUNT(*) FILTER (
-                        WHERE (visited_at AT TIME ZONE $1)::date
+                        WHERE NOT is_repeat
+                          AND (visited_at AT TIME ZONE $1)::date
                             = (NOW() AT TIME ZONE $1)::date
                     ) AS today_visits
                 FROM cv_visits
-                WHERE {EXTERNAS}
+                WHERE {PERSONAS}
             """,
                 self._tz_sql,
             )
@@ -143,7 +192,7 @@ class VisitRepository:
             navegadores = await conn.fetch(f"""
                 SELECT browser, COUNT(*) AS count
                 FROM cv_visits
-                WHERE {EXTERNAS}
+                WHERE {PERSONAS}
                 GROUP BY browser
                 ORDER BY count DESC
                 LIMIT 5
@@ -153,7 +202,7 @@ class VisitRepository:
             redes = await conn.fetch(f"""
                 SELECT ip_prefix, COUNT(*) AS visits, MAX(visited_at) AS last_visit
                 FROM cv_visits
-                WHERE {EXTERNAS} AND ip_prefix IS NOT NULL
+                WHERE {PERSONAS} AND ip_prefix IS NOT NULL
                 GROUP BY ip_prefix
                 ORDER BY visits DESC
                 LIMIT 10
@@ -162,24 +211,32 @@ class VisitRepository:
             dispositivos = await conn.fetch(f"""
                 SELECT device_type, COUNT(*) AS count
                 FROM cv_visits
-                WHERE {EXTERNAS}
+                WHERE {PERSONAS}
                 GROUP BY device_type
             """)
 
             sistemas = await conn.fetch(f"""
                 SELECT os, COUNT(*) AS count
                 FROM cv_visits
-                WHERE {EXTERNAS}
+                WHERE {PERSONAS}
                 GROUP BY os
                 ORDER BY count DESC
                 LIMIT 5
+            """)
+
+            paginas = await conn.fetch(f"""
+                SELECT page, COUNT(*) AS visits
+                FROM cv_visits
+                WHERE {VISITAS}
+                GROUP BY page
+                ORDER BY visits DESC
             """)
 
             diarias = await conn.fetch(
                 f"""
                 SELECT (visited_at AT TIME ZONE $1)::date AS date, COUNT(*) AS visits
                 FROM cv_visits
-                WHERE {EXTERNAS} AND visited_at > NOW() - INTERVAL '30 days'
+                WHERE {VISITAS} AND visited_at > NOW() - INTERVAL '30 days'
                 GROUP BY 1
                 ORDER BY date DESC
             """,
@@ -207,6 +264,7 @@ class VisitRepository:
             device_stats=[DeviceCount(**r) for r in dispositivos],
             os_stats=[OsCount(**r) for r in sistemas],
             daily_visits=[DailyCount(**r) for r in diarias],
+            page_stats=[PageCount(**r) for r in paginas],
         )
 
     async def recent(self, limit: int) -> RecentResponse:
@@ -226,8 +284,8 @@ class VisitRepository:
             filas = await conn.fetch(
                 """
                 SELECT
-                    ip_prefix, browser, os, device_type,
-                    referer, language, is_internal, visited_at
+                    ip_prefix, browser, os, device_type, referer, language,
+                    page, is_internal, is_bot, is_repeat, visited_at
                 FROM cv_visits
                 ORDER BY visited_at DESC
                 LIMIT $1

@@ -16,7 +16,8 @@
         <p class="privacy-note">
             Las IPs no se almacenan. Se muestran redes de origen truncadas
             (/24 en IPv4, /48 en IPv6); los visitantes únicos se cuentan
-            mediante un hash con sal.
+            mediante un hash con sal. Las cifras excluyen el tráfico propio,
+            los rastreadores y las recargas de menos de media hora.
         </p>
 
         <button class="refresh-btn" id="refresh">🔄 Actualizar</button>
@@ -39,8 +40,15 @@
         </div>
 
         <div class="section">
+            <h2>Versión del CV</h2>
+            <p class="nota">Las visitas anteriores a septiembre de 2026 no lo indicaban.</p>
+            <table id="pages-table"></table>
+        </div>
+
+        <div class="section">
             <h2>Visitas Recientes</h2>
-            <p class="nota">Incluye el tráfico interno, que las estadísticas de arriba no cuentan.</p>
+            <p class="nota">Incluye todo lo que llega: tráfico interno, rastreadores y
+               recargas, que las estadísticas de arriba no cuentan.</p>
             <table id="recent-table"></table>
         </div>
     </div>

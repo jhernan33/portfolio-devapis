@@ -44,6 +44,26 @@ def anonymize_ip(raw_ip: str, salt: str):
     return prefix, digest
 
 
+def visitor_fingerprint(raw_ip: str, user_agent: str, salt: str) -> str | None:
+    """
+    Huella del visitante: hash con sal de la IP y su User-Agent.
+
+    `ip_hash` por sí solo cuenta como un visitante a toda una oficina detrás de
+    un NAT, y como varios a quien tiene IP dinámica. Añadir el User-Agent no lo
+    resuelve del todo —nada lo hace sin cookies, y aquí no se quieren— pero sí
+    separa a dos personas distintas de la misma red, que es el error que más se
+    nota cuando el total de visitas se cuenta con los dedos de una mano.
+
+    Devuelve None si la IP no es válida, por el mismo motivo que anonymize_ip:
+    lo que no se entiende no se guarda.
+    """
+    try:
+        ip = ipaddress.ip_address((raw_ip or "").strip())
+    except ValueError:
+        return None
+    return hashlib.sha256(f"{salt}:{ip}:{user_agent or ''}".encode()).hexdigest()
+
+
 def is_internal_ip(raw_ip: str, ignore_networks=()) -> bool:
     """
     ¿Esta visita es tráfico propio en lugar de un visitante?

@@ -557,11 +557,17 @@
 
 		async trackVisit() {
 			try {
+				// Se envía la ruta para poder distinguir el CV en español del
+				// inglés. Sin esto no había forma de saber si la versión
+				// traducida, que se genera y se mantiene, la lee alguien.
+				// El backend no la guarda en crudo: la compara contra una
+				// lista cerrada y lo que no reconoce lo registra como "otro".
 				const response = await fetch('https://devapis.cloud/api/track', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json'
 					},
+					body: JSON.stringify({ page: window.location.pathname }),
 					credentials: 'omit'
 				});
 

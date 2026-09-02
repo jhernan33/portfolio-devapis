@@ -53,6 +53,8 @@ async def test_el_diagnostico_autenticado_si_da_detalle(cliente):
         "status",
         "visits_total",
         "visits_internal",
+        "visits_bots",
+        "visits_repeat",
         "last_visit",
         "pool_size",
         "pool_idle",
@@ -166,9 +168,11 @@ async def test_la_ip_del_visitante_no_llega_en_claro(cliente, conexion):
 async def test_se_guarda_el_prefijo_y_el_hash(cliente, conexion):
     await cliente.post("/api/track", headers={"x-forwarded-for": "93.184.216.34"})
 
-    prefijo, digest = conexion.argumentos_insertados()[:2]
-    assert prefijo == "93.184.216.0"
-    assert len(digest) == 64
+    visita = conexion.visita_insertada()
+    assert visita["ip_prefix"] == "93.184.216.0"
+    assert len(visita["ip_hash"]) == 64
+    assert len(visita["visitor_hash"]) == 64
+    assert visita["ip_hash"] != visita["visitor_hash"]
 
 
 async def test_una_cabecera_falseada_con_basura_no_rompe_el_registro(cliente, conexion):
@@ -180,8 +184,10 @@ async def test_una_cabecera_falseada_con_basura_no_rompe_el_registro(cliente, co
         "/api/track",
         headers={"x-forwarded-for": "'; DROP TABLE cv_visits; --"},
     )
-    prefijo, digest = conexion.argumentos_insertados()[:2]
-    assert prefijo is None and digest is None
+    visita = conexion.visita_insertada()
+    assert visita["ip_prefix"] is None
+    assert visita["ip_hash"] is None
+    assert visita["visitor_hash"] is None
 
 
 async def test_se_toma_la_primera_ip_de_la_cadena(cliente, conexion):
@@ -189,7 +195,7 @@ async def test_se_toma_la_primera_ip_de_la_cadena(cliente, conexion):
         "/api/track",
         headers={"x-forwarded-for": "93.184.216.34, 10.0.0.1, 172.17.0.5"},
     )
-    assert conexion.argumentos_insertados()[0] == "93.184.216.0"
+    assert conexion.visita_insertada()["ip_prefix"] == "93.184.216.0"
 
 
 async def test_el_trafico_propio_se_marca_como_interno(cliente, conexion, configurar):
@@ -198,10 +204,10 @@ async def test_el_trafico_propio_se_marca_como_interno(cliente, conexion, config
     configurar(ignore_networks=[ipaddress.ip_network("93.184.216.34/32")])
 
     await cliente.post("/api/track", headers={"x-forwarded-for": "93.184.216.34"})
-    assert conexion.argumentos_insertados()[8] is True
+    assert conexion.visita_insertada()["is_internal"] is True
 
     await cliente.post("/api/track", headers={"x-forwarded-for": "8.8.8.8"})
-    assert conexion.argumentos_insertados()[8] is False
+    assert conexion.visita_insertada()["is_internal"] is False
 
 
 async def test_se_guardan_navegador_sistema_y_dispositivo(cliente, conexion):
@@ -213,9 +219,13 @@ async def test_se_guardan_navegador_sistema_y_dispositivo(cliente, conexion):
         "/api/track",
         headers={"user-agent": android, "x-forwarded-for": "8.8.8.8"},
     )
-    agente, navegador, sistema, dispositivo = conexion.argumentos_insertados()[2:6]
-    assert agente == android  # el user_agent se guarda entero
-    assert (navegador, sistema, dispositivo) == ("Chrome", "Android", "Mobile")
+    visita = conexion.visita_insertada()
+    assert visita["user_agent"] == android  # el user_agent se guarda entero
+    assert (visita["browser"], visita["os"], visita["device_type"]) == (
+        "Chrome",
+        "Android",
+        "Mobile",
+    )
 
 
 async def test_solo_se_guarda_el_primer_idioma(cliente, conexion):
@@ -223,7 +233,7 @@ async def test_solo_se_guarda_el_primer_idioma(cliente, conexion):
         "/api/track",
         headers={"accept-language": "es-VE,es;q=0.9,en;q=0.8", "x-forwarded-for": "8.8.8.8"},
     )
-    assert conexion.argumentos_insertados()[7] == "es-VE"
+    assert conexion.visita_insertada()["language"] == "es-VE"
 
 
 # ============================================================
@@ -240,6 +250,7 @@ async def test_analytics_devuelve_la_estructura_que_espera_el_panel(cliente):
         "device_stats",
         "os_stats",
         "daily_visits",
+        "page_stats",
     }
     assert set(datos["summary"]) == {
         "total_visits",
@@ -309,7 +320,10 @@ async def test_las_fechas_se_devuelven_en_hora_de_venezuela(cliente, conexion):
                 "device_type": "Desktop",
                 "referer": None,
                 "language": "es",
+                "page": "/cv",
                 "is_internal": False,
+                "is_bot": False,
+                "is_repeat": False,
                 "visited_at": datetime.datetime(2026, 9, 1, 16, 0, 0),  # UTC
             }
         ]

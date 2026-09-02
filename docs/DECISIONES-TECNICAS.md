@@ -386,7 +386,43 @@ contrato de simulacro por defecto y `--aplicar` explícito, escrito una vez.
 
 ---
 
-## 10. Próximos pasos
+## 10. Qué es una visita (septiembre 2026)
+
+Hasta aquí, "visita" era cualquier POST a `/api/track`. Eso incluía a los
+rastreadores que ejecutan JavaScript, cada recarga y cada pestaña de la misma
+persona, y no distinguía el CV en español del inglés. Con siete visitas
+externas reales, alguien que recarga tres veces movía la métrica un 40%.
+
+Cuatro columnas nuevas, ninguna de las cuales borra nada: las filas se siguen
+guardando enteras y se siguen viendo en `/api/analytics/recent`, marcadas.
+
+- **`is_bot`** sale de una lista de subcadenas en `useragent.py`, evaluada al
+  registrar. La migración que reclasifica lo ya guardado importa esa misma
+  función en lugar de reescribirla en SQL: mantener dos veces la lista es
+  garantizar que se separen.
+- **`is_repeat`** lo calcula la propia base dentro del `INSERT`. Preguntar
+  antes y escribir después son dos viajes y una ventana en la que dos
+  peticiones simultáneas se declaran la primera cada una.
+- **`page`** llega del navegador y por eso no se guarda en crudo: se compara
+  contra un conjunto cerrado y lo que no se reconoce se registra como `otro`.
+  El cuerpo se limita a 512 bytes; `/api/track` es público y aceptar cuerpos
+  arbitrarios por cortesía es regalar un vector de agotamiento de memoria.
+- **`visitor_hash`** es `sha256(sal:ip:user-agent)`. `ip_hash` seguía contando
+  como un visitante a toda una oficina detrás de un NAT. Se conserva `ip_hash`
+  y los únicos usan `COALESCE` de los dos, porque romper esa continuidad
+  significaría perder el histórico.
+
+**Un fallo que los tests con doble en memoria no podían ver.** El `EXISTS`
+del INSERT usaba `$13 - INTERVAL '30 minutes'` y PostgreSQL no puede inferir
+el tipo de un parámetro en esa posición: dedujo `interval`, la comparación no
+existía y **todas las visitas fallaban**. La suite pasaba porque el doble no
+valida SQL; lo destapó la prueba de integración contra PostgreSQL real. El
+arreglo es un `::timestamptz` explícito, y la lección es que el doble en
+memoria protege la lógica, no el SQL.
+
+---
+
+## 11. Próximos pasos
 
 - **Despliegue automático**: `deploy.yml` ya actualiza el VPS cuando la CI pasa
   en `main` y verifica el resultado desde fuera; queda configurar los secretos
@@ -406,6 +442,8 @@ versiones de idioma.
 | Anonimización y tráfico interno | `backend/app/privacy.py` |
 | SQL y filtro `NOT is_internal` | `backend/app/repositories/visits.py` |
 | Contrato de la API | `backend/app/models.py` |
+| Qué cuenta como visita | `PERSONAS` y `VISITAS` en `backend/app/repositories/visits.py` |
+| Rastreadores conocidos | `BOTS` en `backend/app/useragent.py` |
 | Routers, rate limit y secretos obligatorios | `docker-compose.yaml` |
 | Esquema versionado | `backend/migrations/` y `backend/app/migrations.py` |
 | Zona de presentación y corte del día | `backend/app/timeutils.py` |

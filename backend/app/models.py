@@ -77,6 +77,14 @@ class DailyCount(BaseModel):
     visits: int
 
 
+class PageCount(BaseModel):
+    """Qué versión del CV se ha leído. `page` es None en las visitas
+    anteriores a que el frontend empezara a decirlo."""
+
+    page: str | None
+    visits: int
+
+
 class AnalyticsResponse(BaseModel):
     summary: Summary
     top_browsers: list[BrowserCount]
@@ -84,6 +92,7 @@ class AnalyticsResponse(BaseModel):
     device_stats: list[DeviceCount]
     os_stats: list[OsCount]
     daily_visits: list[DailyCount]
+    page_stats: list[PageCount]
 
 
 class RecentVisit(BaseModel):
@@ -93,7 +102,10 @@ class RecentVisit(BaseModel):
     device_type: str | None
     referer: str | None
     language: str | None
+    page: str | None
     is_internal: bool
+    is_bot: bool
+    is_repeat: bool
     visited_at: datetime
 
 
@@ -107,6 +119,8 @@ class DiagnosticsResponse(BaseModel):
     status: str
     visits_total: int
     visits_internal: int
+    visits_bots: int
+    visits_repeat: int
     last_visit: datetime | None
     pool_size: int
     pool_idle: int

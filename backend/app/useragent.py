@@ -42,11 +42,59 @@ SYSTEMS = (
 
 MOBILE_HINTS = ("mobile", "android", "iphone", "ipad", "phone", "tablet")
 
+# Cadenas que delatan a algo que no es una persona leyendo el CV.
+#
+# La lista no aspira a ser exhaustiva —ninguna lo es— sino a quitar el ruido
+# que de verdad llega: rastreadores de buscadores y de redes sociales (que
+# piden la página cada vez que alguien comparte el enlace), auditorías
+# automáticas y las herramientas de línea de órdenes con las que uno mismo
+# comprueba que el sitio responde.
+#
+# Se busca por subcadena y en minúsculas, igual que el resto del módulo. Los
+# guiones y las barras van a propósito: "bot" suelto también aparecería dentro
+# de palabras normales de un User-Agent legítimo.
+BOTS = (
+    "bot",  # googlebot, bingbot, twitterbot, telegrambot…
+    "crawler",
+    "spider",
+    "slurp",  # Yahoo
+    "headless",  # Chrome sin interfaz: auditorías y capturas
+    "lighthouse",
+    "pagespeed",
+    "curl/",
+    "wget",
+    "python-requests",
+    "httpx",
+    "go-http-client",
+    "libwww-perl",
+    "facebookexternalhit",
+    "whatsapp",
+    "slackbot",
+    "linkedinbot",
+    "embedly",
+    "preview",
+    "monitor",
+    "uptime",
+)
+
 UNKNOWN = "Unknown"
 
 
 def _first_match(ua_lower: str, rules, default: str) -> str:
     return next((label for hint, label in rules if hint in ua_lower), default)
+
+
+def es_bot(ua_string: str) -> bool:
+    """
+    ¿Esto es un rastreador y no una persona?
+
+    Se decide al registrar, no al consultar: la lista de arriba crecerá, y lo
+    que interesa saber de una visita es cómo se veía cuando ocurrió. Igual que
+    con el tráfico interno, la fila se guarda de todas formas y sigue
+    apareciendo en /api/analytics/recent; solo queda fuera de los agregados.
+    """
+    ua_lower = (ua_string or "").lower()
+    return any(pista in ua_lower for pista in BOTS)
 
 
 def parse_user_agent(ua_string: str) -> dict:

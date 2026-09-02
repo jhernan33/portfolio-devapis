@@ -280,7 +280,12 @@ backend/
 
 ---
 
-## Fase 4. Calidad de los datos de analytics (M, un día)
+## Fase 4. Calidad de los datos de analytics — HECHA 2026-09-02
+
+Desviación: no se extrajo `tools/migracion_base.py` para los scripts con
+dry-run, sino `backend/mantenimiento.py` (fase 2), que ya cubría el caso. La
+reclasificación de bots de filas antiguas es una migración de Python, no un
+script suelto, porque es una sola vez y debe quedar anotada.
 
 ### 4.1 Filtro de bots
 - **Por qué:** cualquier rastreador que ejecute JavaScript cuenta como

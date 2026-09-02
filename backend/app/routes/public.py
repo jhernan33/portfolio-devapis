@@ -4,6 +4,7 @@ Endpoints públicos: el tracking que llama el frontend y el health check.
 El rate limiting de `/api/track` vive en Traefik (ver docker-compose.yaml).
 """
 
+import json
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,16 +13,46 @@ from ..config import Settings
 from ..dependencies import get_settings, get_visits
 from ..logs import LOGGER
 from ..models import HealthResponse, TrackResponse
-from ..privacy import anonymize_ip, client_ip_from_request, is_internal_ip
+from ..paginas import normalizar_pagina
+from ..privacy import (
+    anonymize_ip,
+    client_ip_from_request,
+    is_internal_ip,
+    visitor_fingerprint,
+)
 from ..repositories.visits import Visit, VisitRepository
-from ..useragent import parse_user_agent
+from ..useragent import es_bot, parse_user_agent
+
+# El cuerpo del tracking es un objeto de un solo campo. Cualquier cosa más
+# grande que esto no es el frontend de este CV, y leerla entera en memoria por
+# cortesía sería regalar un vector de agotamiento a una ruta pública.
+CUERPO_MAXIMO = 512
 
 router = APIRouter()
 
 
-def visit_from_request(request: Request, settings: Settings) -> Visit:
+def pagina_del_cuerpo(bruto: bytes) -> str | None:
     """
-    Construye la visita a partir de las cabeceras. El frontend no manda cuerpo.
+    Extrae qué versión del CV se ha visitado, si el frontend lo dice.
+
+    Todo lo que llega aquí es opcional y no fiable: el frontend antiguo no
+    manda cuerpo, y quien llame a mano puede mandar cualquier cosa. Nada de lo
+    que venga se guarda en crudo —`normalizar_pagina` lo reduce a un conjunto
+    cerrado— y un cuerpo ilegible se descarta sin ruido, porque el tracking
+    nunca debe fallar por lo que mande el cliente.
+    """
+    if not bruto or len(bruto) > CUERPO_MAXIMO:
+        return None
+    try:
+        datos = json.loads(bruto)
+    except ValueError:
+        return None
+    return normalizar_pagina(datos.get("page")) if isinstance(datos, dict) else None
+
+
+def visit_from_request(request: Request, settings: Settings, cuerpo: bytes) -> Visit:
+    """
+    Construye la visita a partir de las cabeceras y del cuerpo, si lo hay.
 
     La IP se anonimiza aquí, antes de que exista siquiera el objeto que se va
     a persistir: nunca hay una IP en claro camino de la base.
@@ -39,16 +70,21 @@ def visit_from_request(request: Request, settings: Settings) -> Visit:
     return Visit(
         ip_prefix=ip_prefix,
         ip_hash=ip_hash,
+        visitor_hash=visitor_fingerprint(raw_ip, user_agent, settings.ip_salt),
         user_agent=user_agent,
         browser=ua_info["browser"],
         os=ua_info["os"],
         device_type=ua_info["device_type"],
         referer=request.headers.get("referer"),
         language=language,
+        page=pagina_del_cuerpo(cuerpo),
         # Se marca en el momento de registrar, no al consultar: la lista de
         # redes a ignorar puede cambiar, y lo que interesa es cómo se veía la
         # visita cuando ocurrió.
         is_internal=is_internal_ip(raw_ip, settings.ignore_networks),
+        # Un rastreador se guarda igual, pero no cuenta como visita: los que
+        # ejecutan JavaScript llegan aquí exactamente igual que una persona.
+        is_bot=es_bot(user_agent),
         # Con tzinfo: la columna es TIMESTAMPTZ desde la migración 0002 y
         # PostgreSQL guarda el instante, no una hora suelta sin contexto.
         visited_at=datetime.now(UTC),
@@ -63,7 +99,7 @@ async def track_visit(
 ):
     """Registra una visita al CV. Público (lo llama el frontend)."""
     try:
-        await visits.record(visit_from_request(request, settings))
+        await visits.record(visit_from_request(request, settings, await request.body()))
         return TrackResponse(
             status="tracked",
             timestamp=datetime.now(UTC).isoformat(),

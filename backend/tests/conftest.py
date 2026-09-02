@@ -16,6 +16,7 @@ Dos decisiones que condicionan todo lo demás:
    distintas dentro del mismo proceso.
 """
 
+import dataclasses
 import pathlib
 import sys
 
@@ -29,6 +30,14 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import main
 from app.config import Settings
 from app.logs import LOGGER
+from app.repositories.visits import Visit
+
+# El orden de los parámetros del INSERT es el de los campos de `Visit`, porque
+# el repositorio lo construye con `astuple`. Derivarlo de la clase en lugar de
+# copiarlo aquí evita que los tests sigan pasando mientras comprueban la
+# columna equivocada, que es lo que ocurre cuando alguien añade un campo en
+# medio y los índices se desplazan en silencio.
+CAMPOS_INSERT = [c.name for c in dataclasses.fields(Visit)]
 
 USUARIO = "reclutador"
 CLAVE = "clave-de-prueba"
@@ -105,6 +114,11 @@ class ConexionFalsa:
     def argumentos_insertados(self):
         """Argumentos del último INSERT, o None si no hubo ninguno."""
         return self.inserciones[-1][1] if self.inserciones else None
+
+    def visita_insertada(self):
+        """El último INSERT como diccionario, por nombre de columna."""
+        argumentos = self.argumentos_insertados()
+        return dict(zip(CAMPOS_INSERT, argumentos, strict=True)) if argumentos else None
 
 
 class _Transaccion:
