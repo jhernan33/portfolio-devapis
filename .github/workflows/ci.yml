@@ -17,7 +17,7 @@ jobs:
     name: Guardas de regresión
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # src/ es público: Nginx sirve TODO lo que hay dentro. Tres copias
       # -old.* estuvieron descargables en /cv/index-old.html.
@@ -69,7 +69,7 @@ jobs:
     name: Frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: HTML bien formado y JSON-LD válido
         run: |
@@ -238,9 +238,9 @@ jobs:
     name: Frontend end-to-end
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
           cache: npm
@@ -261,7 +261,7 @@ jobs:
         working-directory: tools/e2e
         run: npx playwright test
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: playwright-report
@@ -272,9 +272,9 @@ jobs:
     name: Backend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
 
@@ -409,7 +409,24 @@ jobs:
     name: Docker Compose
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # El stack local tiene que seguir levantándose en una máquina limpia: es
+      # lo único que permite probar el proyecto entero sin las redes externas
+      # ni la base de datos de otro proyecto.
+      - name: El compose de desarrollo resuelve
+        run: docker compose -f docker-compose.dev.yaml config > /dev/null
+
+      # Las acciones van fijadas por SHA. Una etiqueta móvil como @v4 significa
+      # que la CI ejecuta lo que haya en ella hoy, y quien controle esa etiqueta
+      # controla un runner con acceso al repositorio. Dependabot las actualiza.
+      - name: Ninguna acción con etiqueta móvil
+        run: |
+          if grep -rnE 'uses: +[^@]+@v[0-9]' .github/workflows/; then
+            echo "::error::Fija la acción por SHA: uses: owner/repo@<sha> # vX.Y.Z"
+            exit 1
+          fi
+          echo "Todas las acciones fijadas por SHA"
 
       - name: El compose resuelve con todas las variables
         env:

@@ -410,7 +410,11 @@ que casi nadie ve. La clave de `localStorage` vive solo en `theme-init.js` y
 
 ---
 
-## Fase 6. Infraestructura y operación (M, un día y medio)
+## Fase 6. Infraestructura y operación — HECHA 2026-09-02
+
+La tarea 6.6 se resuelve como decisión documentada, no como cambio: PostgreSQL
+sigue compartido. El motivo y las condiciones para revisarlo están en la
+sección 12 de DECISIONES-TECNICAS.md.
 
 ### 6.1 Compose de desarrollo
 - **Por qué:** el stack no se levanta en una máquina limpia: las redes son

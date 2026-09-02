@@ -33,6 +33,9 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
+      # El repositorio hace falta para tools/verificar-produccion.sh.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
       - name: ¿Está configurado el acceso al servidor?
         id: comprobar
         env:
@@ -110,67 +113,12 @@ jobs:
                ./update-production.sh"
 
       # El despliegue no ha terminado hasta que se comprueba desde fuera. Las
-      # verificaciones corresponden a fallos que este proyecto ya tuvo: el
-      # backend caído por DB_HOST, el tracking robado por el panel de Traefik,
-      # las estadísticas quedándose abiertas y Nginx sirviendo sin ninguna
-      # cabecera de seguridad.
+      # comprobaciones viven en tools/verificar-produccion.sh porque el monitor
+      # de monitor.yml usa exactamente las mismas: tenerlas dos veces habría
+      # garantizado que se separaran.
       - name: Verificar producción
         if: steps.comprobar.outputs.listo == 'si'
-        run: |
-          fallos=0
-
-          echo "→ /cv (debe responder y llevar las cabeceras de seguridad)"
-          cabeceras=$(curl -s -D - -o /dev/null --max-time 15 https://devapis.cloud/cv/ || true)
-          if ! printf '%s\n' "$cabeceras" | grep -q '^HTTP/[0-9.]* 200'; then
-            echo "::error::/cv no responde 200. Si el frontend acaba de cambiar de imagen, ¿se reconstruyó (puerto 8080)?"
-            fallos=1
-          elif ! printf '%s\n' "$cabeceras" | grep -qi '^content-security-policy:'; then
-            echo "::error::/cv responde sin Content-Security-Policy: las cabeceras de Nginx no están llegando."
-            fallos=1
-          else
-            echo "  OK"
-          fi
-
-          echo "→ /health (público: solo dice si el servicio atiende)"
-          if curl -fsS --max-time 15 https://devapis.cloud/health | grep -q '"ok"'; then
-            echo "  OK"
-          else
-            echo "::error::/health no responde ok: ¿alcanza el backend a PostgreSQL? Devuelve 503 si no."
-            fallos=1
-          fi
-
-          echo "→ POST /api/track (debe ser público)"
-          codigo=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
-                   -X POST https://devapis.cloud/api/track)
-          if [ "$codigo" = "200" ]; then
-            echo "  OK"
-          else
-            echo "::error::/api/track devolvió $codigo. Si es 401, el router ha vuelto a caer en el panel de Traefik (revisa las prioridades)."
-            fallos=1
-          fi
-
-          echo "→ GET /api/analytics (debe estar protegido)"
-          # GET y no HEAD (`curl -I`): la ruta está declarada solo para GET, así
-          # que a HEAD responde 405 sin cabecera de autenticación, y esta
-          # comprobación lo leía como "las estadísticas están abiertas". Falso
-          # positivo de la peor clase: alarma de seguridad donde no la había.
-          cabeceras=$(curl -s -o /dev/null -D - --max-time 15 \
-                      https://devapis.cloud/api/analytics || true)
-          codigo=$(printf '%s\n' "$cabeceras" | awk 'NR==1 {print $2}')
-          realm=$(printf '%s\n' "$cabeceras" | grep -i 'www-authenticate' || true)
-
-          if [ "$codigo" != "401" ]; then
-            echo "::error::/api/analytics devolvió $codigo en lugar de 401: las estadísticas podrían estar sirviéndose sin credenciales."
-            fallos=1
-          else
-            case "$realm" in
-              *cv-analytics*) echo "  OK: responde la aplicación y pide credenciales" ;;
-              *traefik*)      echo "::error::Contesta el panel de Traefik, no el backend."; fallos=1 ;;
-              *)              echo "::error::401 pero sin realm reconocible: $realm"; fallos=1 ;;
-            esac
-          fi
-
-          exit $fallos
+        run: ./tools/verificar-produccion.sh
 
       - name: Resumen
         if: steps.comprobar.outputs.listo == 'si' && success()

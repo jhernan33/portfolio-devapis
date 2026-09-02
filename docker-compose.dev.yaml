@@ -1,0 +1,97 @@
+# Stack completo en local, sin Traefik y sin depender de nada externo.
+#
+# Por qué existe: el compose de producción usa dos redes externas y una base de
+# datos que pertenece a otro proyecto, así que en una máquina limpia no se puede
+# levantar. Eso convierte cualquier prueba en "constrúyelo tú a mano", y lo que
+# cuesta montar no se prueba.
+#
+#   cp .env.dev.example .env.dev
+#   docker compose -f docker-compose.dev.yaml --env-file .env.dev up --build
+#
+#     CV:    http://localhost:8080/          (sin el prefijo /cv, que lo pone Traefik)
+#     API:   http://localhost:8000/health
+#     Panel: http://localhost:8000/analytics
+#
+# Si alguno de esos puertos está ocupado, cámbialo en .env.dev con
+# PUERTO_CV, PUERTO_API o PUERTO_POSTGRES.
+#
+# Diferencias con producción, todas a propósito:
+#   * PostgreSQL va aquí dentro, con su volumen. En producción es de otro proyecto.
+#   * No hay Traefik: los puertos se publican directamente y no hay TLS.
+#   * Las credenciales son de mentira y están a la vista. Es local.
+#
+# Lo que NO cambia: las mismas imágenes, el mismo endurecimiento y las mismas
+# migraciones. Si algo falla aquí, falla en producción.
+
+name: cv-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-cv}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cv-local}
+      POSTGRES_DB: ${DB_NAME:-cv}
+    volumes:
+      - datos-dev:/var/lib/postgresql/data
+    ports:
+      # Publicado para poder abrir psql desde el host. Solo en local, y con el
+      # puerto configurable: 5432 y 5433 suelen estar ocupados en una máquina
+      # de desarrollo, y un choque de puertos deja el stack a medio levantar
+      # con un error que no dice qué servicio ha fallado.
+      - "127.0.0.1:${PUERTO_POSTGRES:-55432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cv} -d ${DB_NAME:-cv}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  cv:
+    build: .
+    ports:
+      - "127.0.0.1:${PUERTO_CV:-8080}:8080"
+    volumes:
+      # Montado en lectura: editar src/ y recargar, sin reconstruir.
+      - ./src:/usr/share/nginx/html:ro,z
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+
+  analytics-api:
+    build: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_NAME: ${DB_NAME:-cv}
+      DB_USER: ${DB_USER:-cv}
+      DB_PASSWORD: ${DB_PASSWORD:-cv-local}
+      ANALYTICS_USER: ${ANALYTICS_USER:-admin}
+      ANALYTICS_PASSWORD: ${ANALYTICS_PASSWORD:-admin-local}
+      # Sal de mentira: en local no hay nada que proteger y así los hashes son
+      # reproducibles entre reinicios.
+      ANALYTICS_IP_SALT: ${ANALYTICS_IP_SALT:-sal-de-desarrollo}
+      # Vacío a propósito: en local TODO el tráfico es privado y, si además se
+      # ignorara, el panel se vería siempre vacío. Las visitas salen marcadas
+      # como internas y se ven en /api/analytics/recent, que no filtra.
+      ANALYTICS_IGNORE_NETWORKS: ""
+      ANALYTICS_DISPLAY_TZ: ${ANALYTICS_DISPLAY_TZ:-America/Caracas}
+      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+    ports:
+      - "127.0.0.1:${PUERTO_API:-8000}:8000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  datos-dev:

@@ -53,6 +53,21 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 8000   # → http://localhost:8000
 ```
 
+### Full stack — local (no Traefik, own PostgreSQL)
+```bash
+cp .env.dev.example .env.dev
+docker compose -f docker-compose.dev.yaml --env-file .env.dev up --build
+#   CV    http://localhost:8080/     (no /cv prefix — Traefik adds it in prod)
+#   API   http://localhost:8000/health
+#   Panel http://localhost:8000/analytics   (admin / admin-local)
+```
+Same images, same hardening, same migrations as production; only Traefik and the
+shared database are missing. Change `PUERTO_CV` / `PUERTO_API` / `PUERTO_POSTGRES`
+in `.env.dev` if a port is taken — Docker's clash error does not say which service
+failed. `ANALYTICS_IGNORE_NETWORKS` is empty on purpose: locally everything is
+private already, and visits show up marked in `/api/analytics/recent`, which never
+filters.
+
 ### Full stack — Docker Compose (production)
 ```bash
 docker compose up -d              # builds+runs cv + analytics-api
@@ -62,8 +77,10 @@ docker compose restart            # restart both
 docker compose down
 
 # Convenience scripts:
-./deploy-analytics.sh             # first-time analytics setup (checks postgres17, network, seeds schema, verifies endpoints)
-./update-production.sh            # rebuild analytics-api and force-recreate both services
+./deploy-analytics.sh             # first-time analytics setup (checks the DB container, network, verifies endpoints)
+./update-production.sh            # rebuild both images, recreate, wait for healthy, verify, roll back on failure
+./tools/verificar-produccion.sh   # the same checks the deploy and the monitor run
+./tools/respaldar-db.sh           # pg_dump + verify + rotate
 ```
 
 ### Testing

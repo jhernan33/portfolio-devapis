@@ -476,7 +476,54 @@ verificada en negativo: con un `<script>` inline, falla.
 
 ---
 
-## 12. Próximos pasos
+## 12. Operación: vigilar, volver atrás y poder levantar el proyecto (septiembre 2026)
+
+- **Un solo sitio para las comprobaciones.** Las cinco verificaciones vivían
+  dentro del workflow de despliegue. El monitor necesita las mismas, así que
+  pasan a `tools/verificar-produccion.sh`, que usan los dos y también se puede
+  lanzar a mano contra cualquier URL.
+- **Monitor cada media hora.** El despliegue comprueba una vez y ahí se acaba.
+  Este proyecto ya estuvo meses con el backend en bucle de reinicio sin que
+  nadie lo viera, porque el frontend se traga los errores de tracking por
+  diseño. Ahora, si falla, se abre un issue; si ya hay uno, se comenta en él,
+  porque veinte issues idénticos son ruido y el ruido se ignora. Se cierra
+  solo al recuperarse. Sigue faltando un chequeo externo por si lo que está
+  caído es GitHub Actions.
+- **Despliegue con vuelta atrás.** El `sleep 10` era una adivinanza y un fallo
+  dejaba producción rota. Ahora se etiquetan las imágenes anteriores como
+  `:previa`, se espera preguntando por el estado de salud real, se verifica
+  desde fuera y, si algo falla, se vuelve a la versión anterior y el workflow
+  termina en rojo. Un despliegue fallido deja el sitio en pie.
+- **Stack local completo.** `docker-compose.dev.yaml` levanta PostgreSQL, el
+  CV y la API en una máquina limpia, con las mismas imágenes, el mismo
+  endurecimiento y las mismas migraciones. Antes hacía falta una red externa y
+  una base de datos de otro proyecto, y lo que cuesta montar no se prueba.
+- **Acciones fijadas por SHA.** `@v4` es una etiqueta móvil: la CI ejecutaba lo
+  que hubiera en ella ese día, y quien controle esa etiqueta controla un
+  runner con acceso al repositorio. Dependabot las mantiene.
+
+### PostgreSQL sigue siendo compartido, y es una decisión
+
+Se evaluó traer un PostgreSQL dedicado al analytics dentro de este compose,
+como el que ya existe para desarrollo. Se descarta, por ahora:
+
+- **A favor de separarlo:** el proyecto dejaría de depender de una red externa
+  y de un contenedor que no controla, y `DB_HOST` dejaría de ser un nombre no
+  adivinable que ya causó un bucle de reinicio de meses.
+- **En contra:** un segundo PostgreSQL en el mismo VPS son entre 100 y 150 MB
+  de memoria permanentes y un segundo volumen que respaldar, para una tabla
+  que crece unas decenas de filas al mes. Y la instancia compartida ya tiene
+  rol propio con permisos mínimos (`database/create-analytics-role.sql`), que
+  era el riesgo real.
+
+**Se revisa si** el otro proyecto deja de necesitarla, si hace falta una
+versión distinta de PostgreSQL, o si el respaldo compartido se vuelve
+incómodo. Mientras tanto, lo que mitiga el acoplamiento es el stack local, que
+permite trabajar sin esa dependencia.
+
+---
+
+## 13. Próximos pasos
 
 - **Despliegue automático**: `deploy.yml` ya actualiza el VPS cuando la CI pasa
   en `main` y verifica el resultado desde fuera; queda configurar los secretos
@@ -501,6 +548,8 @@ versiones de idioma.
 | Rastreadores conocidos | `BOTS` en `backend/app/useragent.py` |
 | Textos generados por JS | `TEXTOS` y `t()` en `src/main.js` |
 | Tests de navegador | `tools/e2e/` |
+| Verificación de producción | `tools/verificar-produccion.sh` |
+| Stack local completo | `docker-compose.dev.yaml` |
 | Routers, rate limit y secretos obligatorios | `docker-compose.yaml` |
 | Esquema versionado | `backend/migrations/` y `backend/app/migrations.py` |
 | Zona de presentación y corte del día | `backend/app/timeutils.py` |
