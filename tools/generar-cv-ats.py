@@ -24,8 +24,8 @@ formatos vienen del mismo origen y no pueden divergir.
     python3 tools/generar-cv-ats.py --marcadores   # borrador con [CONFIRMAR: ___]
 
 La experiencia se presenta en dos bloques: el puesto principal, y debajo los
-tres compromisos que fueron SIMULTÁNEOS a él. Leídos en una lista corrida,
-cuatro empleos que se solapan entre 2020 y 2022 parecen un error de fechas, y
+cuatro compromisos que fueron SIMULTÁNEOS a él. Leídos en una lista corrida,
+cinco empleos que se solapan entre 2019 y 2024 parecen un error de fechas, y
 es de las primeras cosas que un reclutador descarta sin preguntar.
 
 Todo dato factual sale de PERFIL-CANONICO.md. No inventar nada aquí, y las
@@ -145,9 +145,9 @@ ES = {
     # reconocía, y quien lo abría veía un descuido de idioma.
     "stack_etiqueta": "Tecnologías",
     "experiencia_titulo": "EXPERIENCIA PROFESIONAL",
-    # El puesto principal va solo y primero. Los otros tres fueron simultáneos a
-    # él, no consecutivos: leídos en una lista corrida, cuatro empleos que se
-    # solapan entre 2020 y 2022 parecen un error de fechas o una exageración, y
+    # El puesto principal va solo y primero. Los otros cuatro fueron simultáneos a
+    # él, no consecutivos: leídos en una lista corrida, cinco empleos que se
+    # solapan entre 2019 y 2024 parecen un error de fechas o una exageración, y
     # es lo primero que un reclutador descarta sin preguntar.
     "experiencia": [
         {
@@ -173,10 +173,24 @@ ES = {
     ],
     "experiencia_paralela_titulo": "Experiencia paralela / freelance",
     "experiencia_paralela_nota": (
-        "Los tres compromisos siguientes se desarrollaron de forma simultánea al puesto de "
+        "Los cuatro compromisos siguientes se desarrollaron de forma simultánea al puesto de "
         "Jefe de Informática, no como empleos consecutivos."
     ),
     "experiencia_paralela": [
+        {
+            "puesto": "Desarrollador Backend",
+            "empresa": "Gsamples-Global (Chile)",
+            "fechas": "08/2023 – 07/2024",
+            "vinculo": "Freelance, en paralelo a PCVARELAVENEZUELA",
+            "puntos": [
+                "Prototipo de la API REST de un sistema de trazabilidad de muestras geológicas"
+                " mineras.",
+                "Modelado del ciclo de vida del testigo de sondaje, desde que sale del terreno"
+                " hasta su almacenamiento y análisis en laboratorio.",
+                "Despliegue en un VPS de Contabo con Docker y Traefik.",
+            ],
+            "stack": "PHP, Laravel, MySQL, Docker, Traefik",
+        },
         {
             "puesto": "Desarrollador Backend",
             "empresa": "Delzam",
@@ -350,10 +364,23 @@ EN = {
     ],
     "experiencia_paralela_titulo": "Concurrent / Freelance Engagements",
     "experiencia_paralela_nota": (
-        "The three engagements below ran concurrently with the IT Manager role, not as "
+        "The four engagements below ran concurrently with the IT Manager role, not as "
         "consecutive positions."
     ),
     "experiencia_paralela": [
+        {
+            "puesto": "Backend Developer",
+            "empresa": "Gsamples-Global (Chile)",
+            "fechas": "Aug 2023 – Jul 2024",
+            "vinculo": "Freelance, alongside PCVARELAVENEZUELA",
+            "puntos": [
+                "Prototype of the REST API for a mining geological sample traceability system.",
+                "Modelled the life cycle of a drill core sample, from the field to storage and"
+                " laboratory analysis.",
+                "Deployment on a Contabo VPS with Docker and Traefik.",
+            ],
+            "stack": "PHP, Laravel, MySQL, Docker, Traefik",
+        },
         {
             "puesto": "Backend Developer",
             "empresa": "Delzam",

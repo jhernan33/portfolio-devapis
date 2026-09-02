@@ -73,8 +73,8 @@ TRADUCCIONES = [
     ("Información de contacto", "Contact details"),
     # --- experiencia ---
     ("Experiencia Profesional", "Professional Experience"),
-    ("15 años en TI. Entre 2019 y 2023 compaginé el puesto de tiempo completo con trabajo freelance, consultoría y contrato.",
-     "15 years in IT. Between 2019 and 2023 I combined my full-time role with freelance, consulting and contract work."),
+    ("15 años en TI. Entre 2019 y 2024 compaginé el puesto de tiempo completo con trabajo freelance, consultoría y contrato.",
+     "15 years in IT. Between 2019 and 2024 I combined my full-time role with freelance, consulting and contract work."),
     ("Jefe de Informática", "IT Manager"),
     ("Lidero el departamento de TI y la infraestructura tecnológica completa",
      "I lead the IT department and the full technology infrastructure"),
@@ -88,6 +88,12 @@ TRADUCCIONES = [
     ("Freelance · en paralelo a PCVARELAVENEZUELA", "Freelance · alongside PCVARELAVENEZUELA"),
     ("Consultoría · en paralelo a PCVARELAVENEZUELA", "Consulting · alongside PCVARELAVENEZUELA"),
     ("Contrato · en paralelo a PCVARELAVENEZUELA", "Contract · alongside PCVARELAVENEZUELA"),
+    ("Prototipo de la API REST de un sistema de trazabilidad de muestras geológicas mineras",
+     "Prototype of the REST API for a mining geological sample traceability system"),
+    ("Modelado del ciclo de vida del testigo de sondaje, desde que sale del terreno hasta su almacenamiento y análisis en laboratorio",
+     "Modelled the life cycle of a drill core sample, from the field to storage and laboratory analysis"),
+    ("Despliegue en un VPS de Contabo con Docker y Traefik",
+     "Deployment on a Contabo VPS with Docker and Traefik"),
     ("APIs REST con Django y Django REST Framework para un sistema de gestión empresarial",
      "REST APIs with Django and Django REST Framework for a business management system"),
     ("Integración de servicios sobre esa API", "Service integration on top of that API"),
@@ -321,7 +327,7 @@ VOCABULARIO_INVARIANTE = {
     # persona, lugares y organizaciones
     "josé", "hernán", "varela", "táchira", "venezuela", "delzam", "iufront",
     "iutai", "platzi", "zippyttech", "tecnología", "innovación", "github",
-    "linkedin", "pcvarelavenezuela", "jv",
+    "linkedin", "pcvarelavenezuela", "jv", "gsamples", "global", "chile",
     # cargo y secciones que ya están en inglés en el original
     "senior", "backend", "developer", "stack", "frameworks", "devops",
     "terminal", "prompt", "engineering", "ai", "tools", "code", "claude",
