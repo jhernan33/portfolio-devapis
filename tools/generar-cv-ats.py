@@ -52,6 +52,11 @@ ES = {
         "y bases de datos. Disponible para trabajo remoto con equipos de "
         "Latinoamérica, Estados Unidos y Europa."
     ),
+    # La etiqueta va aquí y no escrita a fuego en construir_documento():
+    # estaba en español también en el documento inglés, en las siete líneas
+    # de stack. Un lector automático que busca "Technologies:" no la
+    # reconocía, y quien lo abría veía un descuido de idioma.
+    "stack_etiqueta": "Tecnologías",
     "experiencia_titulo": "EXPERIENCIA PROFESIONAL",
     "experiencia": [
         {
@@ -187,6 +192,7 @@ EN = {
         "Linux servers, containers, reverse proxy and databases. Available for remote "
         "work with teams in Latin America, the United States and Europe."
     ),
+    "stack_etiqueta": "Technologies",
     "experiencia_titulo": "PROFESSIONAL EXPERIENCE",
     "experiencia": [
         {
@@ -388,7 +394,7 @@ def construir_documento(d):
         p.append(parrafo(f'{e["fechas"]} | {e["vinculo"]}'))
         for punto in e["puntos"]:
             p.append(vineta(punto))
-        p.append(parrafo(f'Tecnologías: {e["stack"]}'))
+        p.append(parrafo(f'{d["stack_etiqueta"]}: {e["stack"]}'))
 
     p.append(encabezado(d["habilidades_titulo"]))
     for categoria, valores in d["habilidades"]:
@@ -401,7 +407,7 @@ def construir_documento(d):
             p.append(parrafo(pr["url"]))
         for punto in pr["puntos"]:
             p.append(vineta(punto))
-        p.append(parrafo(f'Tecnologías: {pr["stack"]}'))
+        p.append(parrafo(f'{d["stack_etiqueta"]}: {pr["stack"]}'))
 
     p.append(encabezado(d["educacion_titulo"]))
     for titulo, centro, fechas in d["educacion"]:
