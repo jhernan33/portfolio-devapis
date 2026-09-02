@@ -31,6 +31,10 @@
 	<link rel="alternate" hreflang="x-default" href="https://devapis.cloud/cv">
 	<base href="/cv/">
 	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' font-weight='bold' fill='%230ea5e9'>JV</text></svg>">
+	<!-- Sin defer y antes de la hoja de estilos: aplica el tema guardado antes
+	     del primer pintado. Con main.js (que sí es defer) la página se pintaba
+	     en claro y saltaba a oscuro. -->
+	<script src="theme-init.js"></script>
 	<link rel="stylesheet" href="styles.css">
 	<title>José Hernán Varela - Senior Backend Developer</title>
 

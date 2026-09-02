@@ -20,7 +20,9 @@ equivalente anglosajón: "Jefe de Informática" es "IT Manager", no "Chief of
 Informatics"; "TSU" es un "Associate Degree".
 """
 import pathlib
+import re
 import sys
+from html.parser import HTMLParser
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 ORIGEN = RAIZ / "src" / "index.html"
@@ -36,6 +38,11 @@ TRADUCCIONES = [
      "15 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
     # --- navegación ---
     ("Saltar al contenido", "Skip to content"),
+    # El único periodo abierto del CV. Estaba sin traducir y no se ve a simple
+    # vista: la fecha parece una fecha en cualquier idioma hasta que uno lee
+    # "Presente" en una página en inglés. Lo destapó la comprobación de abajo.
+    (">2011 - Presente<", ">2011 - Present<"),
+    ('aria-label="Cerrar"', 'aria-label="Close"'),
     (">Experiencia<", ">Experience<"),
     (">Proyectos<", ">Projects<"),
     (">Educación<", ">Education<"),
@@ -106,6 +113,9 @@ TRADUCCIONES = [
     ('<h3 class="stack-card__title">Lenguajes</h3>', '<h3 class="stack-card__title">Languages</h3>'),
     ("Bases de Datos", "Databases"),
     ("<li>Microservicios</li>", "<li>Microservices</li>"),
+    (">Microservicios<", ">Microservices<"),
+    ('"Microservicios"', '"Microservices"'),
+
     # --- proyectos ---
     ("Proyectos Destacados", "Selected Projects"),
     ("Soluciones de impacto real", "Work with real-world impact"),
@@ -161,6 +171,10 @@ TRADUCCIONES = [
      '<span class="cert-card__category">Language</span>'),
     ('<span class="cert-card__category">IA</span>', '<span class="cert-card__category">AI</span>'),
     ("Platzi · ene ", "Platzi · Jan "),
+    # jul faltaba: los otros once meses estaban y este no, así que la
+    # certificación de julio de 2026 se publicaba con el mes en español. Lo
+    # destapó la comprobación de texto sin traducir; a ojo no se ve.
+    ("Platzi · jul ", "Platzi · Jul "),
     ("Platzi · mar ", "Platzi · Mar "),
     ("Platzi · abr ", "Platzi · Apr "),
     ("Platzi · may ", "Platzi · May "),
@@ -235,6 +249,7 @@ def generar(html: str) -> str:
     html = html.replace('\t<base href="/cv/">\n', "")
     html = html.replace('href="styles.css"', 'href="/cv/styles.css"')
     html = html.replace('src="main.js"', 'src="/cv/main.js"')
+    html = html.replace('src="theme-init.js"', 'src="/cv/theme-init.js"')
     html = html.replace('data-cert="assets/images/', 'data-cert="/cv/assets/images/')
 
     # Los hreflang ya están en el original y son recíprocos, así que se copian
@@ -284,6 +299,125 @@ def generar(html: str) -> str:
     return html
 
 
+# ---------------------------------------------------------------------------
+# Comprobación de texto sin traducir
+# ---------------------------------------------------------------------------
+#
+# Comparar que la salida coincida con el generador solo detecta que alguien
+# editó src/en/index.html a mano. No detecta lo que de verdad pasa: que se
+# añada un párrafo en español, no esté en el diccionario y viaje intacto a la
+# versión inglesa. Eso no falla, no se ve, y la única persona que abre esa
+# página a diario es la que menos lo va a notar.
+#
+# Aquí se extrae el texto visible de las dos versiones y se marca todo lo que
+# aparezca idéntico en ambas. La mayoría de esas coincidencias son legítimas
+# —nombres propios, tecnologías, fechas— así que hace falta decir cuáles.
+
+# Palabras que se escriben igual en los dos idiomas: nombres propios,
+# tecnologías, siglas y valores técnicos. Una cadena se considera invariante si
+# TODAS sus palabras están aquí. Así "Django / Django REST Framework" pasa sin
+# tener que enumerar cada combinación, y "Microservicios" no.
+VOCABULARIO_INVARIANTE = {
+    # persona, lugares y organizaciones
+    "josé", "hernán", "varela", "táchira", "venezuela", "delzam", "iufront",
+    "iutai", "platzi", "zippyttech", "tecnología", "innovación", "github",
+    "linkedin", "pcvarelavenezuela", "jv",
+    # cargo y secciones que ya están en inglés en el original
+    "senior", "backend", "developer", "stack", "frameworks", "devops",
+    "terminal", "prompt", "engineering", "ai", "tools", "code", "claude",
+    "windsurf", "blockchain",
+    # tecnologías
+    "python", "django", "rest", "framework", "fastapi", "postgresql",
+    "postgis", "mysql", "sql", "server", "pl", "pgsql", "redis", "docker",
+    "compose", "traefik", "nginx", "linux", "ubuntu", "debian", "fedora",
+    "php", "laravel", "lumen", "javascript", "es6", "express", "js", "vue",
+    "web3", "websockets", "jwt", "auth", "apis", "api", "git", "shell",
+    "scripting", "cv", "pdf", "docx", "json", "es", "web", "jhernan",
+    # meses ya traducidos y valores de metadatos
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct",
+    "nov", "dec", "es_ve", "en_us", "image", "png", "profile",
+    "summary_large_image", "width", "device", "initial", "scale",
+    "jhernan33", "gmail", "com", "http", "https",
+}
+
+# Cadenas completas que se escriben igual en los dos idiomas y que no se pueden
+# descomponer en palabras del vocabulario. Van enteras y contadas.
+CADENAS_INVARIANTES = {
+    "Zippyttech Tecnología e Innovación",   # razón social
+}
+
+# Valores que no son prosa: colores, correos, dominios, locales, tipos MIME e
+# identificadores. Ninguno se traduce nunca, y enumerarlos uno a uno en el
+# vocabulario solo lo ensuciaría.
+PATRONES_TECNICOS = (
+    re.compile(r"^#[0-9a-fA-F]{3,8}$"),                     # color
+    re.compile(r"^[\w.+-]+@[\w-]+\.[\w.]+$"),              # correo
+    re.compile(r"^(https?://)?[\w-]+(\.[\w-]+)+(/\S*)?$"),  # dominio o URL
+    re.compile(r"^[a-z]{2}_[A-Z]{2}$"),                     # locale
+    re.compile(r"^[\w-]+/[\w.+-]+$"),                       # tipo MIME
+    re.compile(r"^[a-z0-9]*_[a-z0-9_]+$"),                  # identificador
+)
+
+ATRIBUTOS_CON_TEXTO = ("alt", "aria-label", "title", "content", "placeholder")
+
+
+class _TextoVisible(HTMLParser):
+    """Saca el texto que lee una persona: nodos de texto y atributos con copy."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.textos: list[str] = []
+        self._dentro_de_codigo = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self._dentro_de_codigo += 1
+        for nombre, valor in attrs:
+            if nombre in ATRIBUTOS_CON_TEXTO and valor and valor.strip():
+                self.textos.append(valor.strip())
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style") and self._dentro_de_codigo:
+            self._dentro_de_codigo -= 1
+
+    def handle_data(self, datos):
+        if self._dentro_de_codigo:
+            return
+        limpio = " ".join(datos.split())
+        if limpio:
+            self.textos.append(limpio)
+
+
+def _texto_visible(html: str) -> set:
+    parser = _TextoVisible()
+    parser.feed(html)
+    return set(parser.textos)
+
+
+def _es_invariante(texto: str) -> bool:
+    """
+    ¿Es normal que esta cadena sea idéntica en los dos idiomas?
+
+    Lo es si no contiene ninguna palabra —solo cifras, fechas o símbolos— o si
+    todas sus palabras están en el vocabulario. Es una lista de excepciones
+    explícita y no una heurística: cuando falle, el mensaje dice exactamente
+    qué palabra no reconoce, y la decisión de añadirla o traducir es de quien
+    edita el CV.
+    """
+    if texto in CADENAS_INVARIANTES:
+        return True
+    if any(patron.match(texto) for patron in PATRONES_TECNICOS):
+        return True
+    palabras = re.findall(r"[^\W\d_]+", texto.lower(), re.UNICODE)
+    return all(p in VOCABULARIO_INVARIANTE for p in palabras)
+
+
+def comprobar_traduccion(html_en: str) -> list:
+    """Devuelve las cadenas que siguen en español en la versión inglesa."""
+    comunes = _texto_visible(ORIGEN.read_text(encoding="utf-8")) & _texto_visible(html_en)
+    return sorted(t for t in comunes if not _es_invariante(t))
+
+
 def main() -> None:
     salida = generar(ORIGEN.read_text(encoding="utf-8"))
     if "--check" in sys.argv:
@@ -291,7 +425,18 @@ def main() -> None:
         if actual != salida:
             sys.exit("src/en/index.html está desactualizado. "
                      "Ejecuta: python3 tools/generar-version-en.py")
-        print("src/en/index.html está al día")
+
+        sin_traducir = comprobar_traduccion(salida)
+        if sin_traducir:
+            print("Texto idéntico en las dos versiones y no reconocido como invariante:")
+            for texto in sin_traducir:
+                print(f"  · {texto[:120]}")
+            sys.exit(
+                "Añade la traducción a TRADUCCIONES, o la palabra a "
+                "VOCABULARIO_INVARIANTE si de verdad se escribe igual."
+            )
+
+        print("src/en/index.html está al día y sin texto sin traducir")
         return
     DESTINO.parent.mkdir(parents=True, exist_ok=True)
     DESTINO.write_text(salida, encoding="utf-8")

@@ -422,12 +422,67 @@ memoria protege la lógica, no el SQL.
 
 ---
 
-## 11. Próximos pasos
+## 11. Frontend: repetición, idioma y una guarda que no comprobaba nada (septiembre 2026)
+
+- **`onActivate`.** El par `click` + `touchend` estaba copiado en cuatro
+  módulos. En móvil llegan los dos y la acción se ejecutaba dos veces: el tema
+  cambiaba y volvía en el mismo gesto. Ahora está escrito una vez, con la
+  guarda de medio segundo, y hay un test móvil que lo fija.
+- **`TEXTOS` y `t()`.** El idioma se miraba en cinco módulos con cinco
+  ternarios. Bastaba con olvidar uno para que un lector de pantalla anunciara
+  "Certificado Django" en la versión inglesa. Ahora se mira una vez.
+- **`theme-init.js`.** `main.js` se carga con `defer`, así que el tema guardado
+  se aplicaba después del primer pintado: quien tenía el oscuro veía un
+  fogonazo blanco en cada carga. Este fichero, sin `defer` y en el `<head>`,
+  lo aplica antes, y de paso es el único sitio donde vive la clave de
+  `localStorage`.
+
+### La comprobación de traducción encontró cuatro cosas
+
+Comparar que la salida coincida con el generador solo detecta ediciones a
+mano. No detecta lo que de verdad pasa: que se añada texto en español, no esté
+en el diccionario y viaje intacto al inglés. La comprobación nueva extrae el
+texto visible de las dos versiones y marca lo que aparezca idéntico y no esté
+en una lista de excepciones explícita. Al estrenarla encontró:
+
+- `Microservicios` en una etiqueta y en el JSON-LD (solo estaba traducido en
+  la lista `<li>`),
+- `aria-label="Cerrar"` del modal, que es justo lo que oye un lector de
+  pantalla,
+- `Platzi · jul 2026`: los once meses restantes estaban traducidos y julio no,
+- `2011 - Presente`, el único periodo abierto del CV.
+
+Ninguna de las cuatro se ve leyendo la página por encima.
+
+### Un 404 que decía 200
+
+`try_files ... /index.html` más `error_page 404 =200 /index.html` hacían que
+cualquier ruta inexistente devolviera el CV entero con código 200. Para un
+buscador eso es un *soft 404*: una página que afirma existir sin existir, en
+un sitio que tiene sitemap y canonical. Ahora hay una página 404 propia y un
+código de verdad. El reenvío de SPA no hacía falta: esto no es una SPA.
+
+También se retira `X-XSS-Protection`: los navegadores actuales la ignoran y en
+los que la implementaron el filtro llegó a introducir vulnerabilidades
+propias.
+
+### Una guarda que llevaba desde el principio sin comprobar nada
+
+La de "sin JavaScript inline" ejecutaba `grep -nE '...' -P`. Combinar `-E` y
+`-P` es un error de grep: el comando salía con código 2, el `if` lo leía como
+"no hay coincidencias" y la guarda pasaba siempre. Se descubrió al ver el
+aviso `conflicting matchers` ejecutándola en local. Corregida a `-P` solo y
+verificada en negativo: con un `<script>` inline, falla.
+
+---
+
+## 12. Próximos pasos
 
 - **Despliegue automático**: `deploy.yml` ya actualiza el VPS cuando la CI pasa
   en `main` y verifica el resultado desde fuera; queda configurar los secretos
   del servidor para activarlo.
-- **Tests de extremo a extremo del frontend**, que siguen sin existir.
+- **Monitor externo continuo** y **vuelta atrás en el despliegue** (fase 6 del
+  plan de mejoras).
 
 El aviso de privacidad que figuraba aquí ya está en el pie del sitio, en las dos
 versiones de idioma.
@@ -444,6 +499,8 @@ versiones de idioma.
 | Contrato de la API | `backend/app/models.py` |
 | Qué cuenta como visita | `PERSONAS` y `VISITAS` en `backend/app/repositories/visits.py` |
 | Rastreadores conocidos | `BOTS` en `backend/app/useragent.py` |
+| Textos generados por JS | `TEXTOS` y `t()` en `src/main.js` |
+| Tests de navegador | `tools/e2e/` |
 | Routers, rate limit y secretos obligatorios | `docker-compose.yaml` |
 | Esquema versionado | `backend/migrations/` y `backend/app/migrations.py` |
 | Zona de presentación y corte del día | `backend/app/timeutils.py` |

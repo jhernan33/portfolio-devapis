@@ -94,10 +94,29 @@ separately, correctly said `Mobile`. The rules are ordered tables (`BROWSERS`,
 `SYSTEMS`) in `backend/app/useragent.py`, so the order is visible data: add new
 browsers/OSes as a row, most-specific-first, and add a test.
 
-**Frontend — manual checklist:** theme toggle (light/dark), smooth-scroll nav,
-certificate modal (click any cert card), PDF export button, responsive layouts,
-keyboard/screen-reader accessibility. Structural regressions (ES/EN sync, ATS
-docs, OG image, page-weight budget, no inline JS) are covered by CI guards.
+**Frontend — end-to-end** (`tools/e2e/`, run by CI in the `frontend-e2e` job):
+
+```bash
+cd tools/e2e
+npm ci && npx playwright install chromium
+npx playwright test
+```
+
+Playwright lives in `tools/e2e/` so `src/` stays dependency-free. The server
+serves `src/` **under `/cv/`** (`preparar-servidor.sh` symlinks it), because the
+HTML carries `<base href="/cv/">`: served at the root, every asset 404s and the
+tests would measure a page with no CSS or JS. Navigate with `goto('./')`, never
+`goto('/')` — an absolute path replaces the whole base path. Two projects, desktop
+and mobile; the mobile menu and the double-fire guard on tap are only covered by
+the mobile one.
+
+Covered: theme persists across reload, certificate modal traps and restores focus,
+collapsed certifications, nav active state (opening the mobile menu first), the
+tracking payload, and that the English page's JS-generated strings are English.
+
+Structural regressions (ES/EN sync, untranslated text, ATS docs, OG image,
+page-weight budget, no inline JS, security headers, real 404) are covered by CI
+guards.
 
 ## Architecture
 
@@ -246,7 +265,10 @@ Spanish (`lang="es"`), semantic HTML5, ARIA labels, BEM class names.
 - IIFE module with `init()`; register it in the main `init()`.
 - No external dependencies.
 - Support both `click` and `touchend` for mobile buttons.
-- CSP forbids inline scripts — all JS must live in `main.js`.
+- CSP forbids inline scripts — all JS must live in `main.js` or `theme-init.js`.
+- Text generated from JS goes through `t()` and the `TEXTOS` table, never an inline `lang === 'en' ? …` ternary — that check exists once, at the top of the file.
+- Buttons use `onActivate(el, fn)`, which registers `click` and `touchend` and swallows the duplicate: on mobile both fire and the action ran twice.
+- `theme-init.js` loads **without `defer` in the `<head>`** and owns the `localStorage` key. `main.js` is deferred, so applying the theme there meant a flash of the wrong one on every load. If you add a script tag to `index.html`, teach `tools/generar-version-en.py` to rewrite its path — the English page has no `<base>`.
 
 ### Backend (`backend/app/`)
 - Keep it dependency-light (currently only fastapi, uvicorn, asyncpg). Adding a lib means editing `backend/requirements.txt` and rebuilding the image.

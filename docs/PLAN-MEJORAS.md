@@ -332,7 +332,12 @@ script suelto, porque es una sola vez y debe quedar anotada.
 
 ---
 
-## Fase 5. Frontend (M, un día)
+## Fase 5. Frontend — HECHA 2026-09-02
+
+Desviación: el 404 no reutiliza `styles.css` sino que lleva sus propios
+estilos en línea (veinte líneas), para no añadir una petición a una página
+que casi nadie ve. La clave de `localStorage` vive solo en `theme-init.js` y
+`main.js` la usa a través de `window.CVTema`, en lugar de repetir el literal.
 
 ### 5.1 Un solo helper de activación
 - **Por qué:** `click` + `touchend` con `preventDefault` está copiado en

@@ -9,43 +9,89 @@
 	'use strict';
 
 	/* ============================================
+	   UTILIDADES COMPARTIDAS
+	   ============================================ */
+
+	/**
+	 * Registra un manejador que responde igual al ratón y al dedo.
+	 *
+	 * En móvil, `touchend` llega antes que el `click` sintético que el
+	 * navegador genera después, así que escuchar los dos disparaba la acción
+	 * dos veces: el tema cambiaba y volvía. Se marca el tiempo del último
+	 * disparo y se ignora lo que llegue en el medio segundo siguiente.
+	 *
+	 * Estaba copiado en cuatro módulos, cada uno con su propia versión de la
+	 * misma idea. Aquí está escrito una vez.
+	 */
+	function onActivate(el, handler) {
+		let ultimo = 0;
+		const disparar = (e) => {
+			const ahora = Date.now();
+			if (ahora - ultimo < 500) return;
+			ultimo = ahora;
+			e.preventDefault();
+			handler(e);
+		};
+		el.addEventListener('click', disparar);
+		el.addEventListener('touchend', disparar, { passive: false });
+	}
+
+	/* ============================================
+	   TEXTOS
+	   ============================================ */
+
+	/**
+	 * Cadenas que genera el JavaScript, en los dos idiomas.
+	 *
+	 * `main.js` se comparte entre /cv y /cv/en, así que todo texto creado desde
+	 * aquí tiene que seguir al idioma del documento. Estaba resuelto en cinco
+	 * módulos con cinco ternarios `lang === 'en' ? ... : ...`, y bastaba con
+	 * olvidar uno para que un lector de pantalla anunciara "Certificado Django"
+	 * en la versión inglesa. Ahora el idioma se mira una vez y las cadenas
+	 * viven juntas, donde se ve de un vistazo si falta alguna.
+	 */
+	const EN = document.documentElement.lang === 'en';
+
+	const TEXTOS = {
+		es: {
+			menuAbrir: 'Abrir menú de navegación',
+			menuCerrar: 'Cerrar menú de navegación',
+			volverArriba: 'Volver arriba',
+			certificado: 'Certificado',
+			verificar: 'Verificar en Platzi',
+			verMenos: 'Ver menos',
+			verMas: (n) => `Ver ${n} certificaciones más`
+		},
+		en: {
+			menuAbrir: 'Open navigation menu',
+			menuCerrar: 'Close navigation menu',
+			volverArriba: 'Back to top',
+			certificado: 'Certificate',
+			verificar: 'Verify on Platzi',
+			verMenos: 'Show fewer',
+			verMas: (n) => `Show ${n} more certifications`
+		}
+	};
+
+	const t = (clave, ...args) => {
+		const valor = TEXTOS[EN ? 'en' : 'es'][clave];
+		return typeof valor === 'function' ? valor(...args) : valor;
+	};
+
+	/* ============================================
 	   THEME TOGGLE (Light/Dark Mode)
 	   ============================================ */
 	
 	const ThemeManager = {
-		STORAGE_KEY: 'cv-color-scheme',
-		
 		init() {
 			this.toggle = document.getElementById('theme-toggle');
-			if (!this.toggle) {
-				console.warn('Theme toggle button not found');
-				return;
-			}
-			
-			console.log('Theme toggle button found');
-			this.loadTheme();
-			
-			// Usar tanto click como touchend para mejor compatibilidad móvil
-			this.toggle.addEventListener('click', (e) => {
-				console.log('Theme toggle clicked');
-				e.preventDefault();
-				this.switchTheme();
-			});
-			
-			this.toggle.addEventListener('touchend', (e) => {
-				console.log('Theme toggle touched');
-				e.preventDefault();
-				this.switchTheme();
-			}, { passive: false });
+			if (!this.toggle) return;
+
+			// El tema guardado ya lo aplicó theme-init.js antes del primer
+			// pintado; aquí solo queda atender al botón.
+			onActivate(this.toggle, () => this.switchTheme());
 		},
-		
-		loadTheme() {
-			const saved = localStorage.getItem(this.STORAGE_KEY);
-			if (saved) {
-				document.documentElement.setAttribute('data-theme', saved);
-			}
-		},
-		
+
 		switchTheme() {
 			const current = document.documentElement.getAttribute('data-theme');
 			const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -60,7 +106,10 @@
 			}
 			
 			document.documentElement.setAttribute('data-theme', next);
-			localStorage.setItem(this.STORAGE_KEY, next);
+			// La clave y el manejo de localStorage viven en theme-init.js, que
+			// es quien tiene que conocerlos para aplicar el tema antes del
+			// primer pintado. Aquí no se repiten.
+			window.CVTema?.guardar(next);
 			
 			// Feedback visual para móvil
 			if (this.toggle) {
@@ -191,15 +240,9 @@
 			this.menu = document.getElementById('nav-menu');
 			if (!this.nav || !this.btn || !this.menu) return;
 
-			this.en = document.documentElement.lang === 'en';
 			this.btn.hidden = false;   // a partir de aquí lo gobierna el CSS
 
-			const alternar = (e) => {
-				e.preventDefault();
-				this.toggle();
-			};
-			this.btn.addEventListener('click', alternar);
-			this.btn.addEventListener('touchend', alternar);
+			onActivate(this.btn, () => this.toggle());
 
 			// Al elegir destino el menú sobra: dejarlo abierto tapa el contenido
 			// al que se acaba de saltar.
@@ -237,13 +280,13 @@
 		abrir() {
 			this.nav.dataset.menuOpen = 'true';
 			this.btn.setAttribute('aria-expanded', 'true');
-			this.btn.setAttribute('aria-label', this.en ? 'Close navigation menu' : 'Cerrar menú de navegación');
+			this.btn.setAttribute('aria-label', t('menuCerrar'));
 		},
 
 		cerrar() {
 			this.nav.dataset.menuOpen = 'false';
 			this.btn.setAttribute('aria-expanded', 'false');
-			this.btn.setAttribute('aria-label', this.en ? 'Open navigation menu' : 'Abrir menú de navegación');
+			this.btn.setAttribute('aria-label', t('menuAbrir'));
 		}
 	};
 
@@ -262,11 +305,10 @@
 		UMBRAL: 600,
 
 		init() {
-			const en = document.documentElement.lang === 'en';
 			const btn = document.createElement('button');
 			btn.type = 'button';
 			btn.className = 'scroll-top';
-			btn.setAttribute('aria-label', en ? 'Back to top' : 'Volver arriba');
+			btn.setAttribute('aria-label', t('volverArriba'));
 
 			const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 			svg.setAttribute('width', '20');
@@ -356,15 +398,9 @@
 			if (!certSrc) return;
 			
 			this.modalImg.src = certSrc;
-			// main.js se comparte entre /cv y /cv/en, así que el texto que se
-			// genera desde aquí tiene que seguir al idioma del documento. Con
-			// la cadena fija en español, un lector de pantalla en la versión
-			// inglesa anunciaba "Certificado Django".
-			const en = document.documentElement.lang === 'en';
-			const certLabel = en ? 'Certificate' : 'Certificado';
-			this.modalImg.alt = `${certLabel} ${certTitle}`;
+			this.modalImg.alt = `${t('certificado')} ${certTitle}`;
 			this.modalTitle.textContent = certTitle;
-			this.renderMeta(card, en);
+			this.renderMeta(card);
 
 			// Se recuerda quién abrió el modal para devolverle el foco al
 			// cerrarlo. Sin esto, quien navega con teclado o lector de pantalla
@@ -412,7 +448,7 @@
 		 * es la misma disciplina que sigue el dashboard del backend, y aquí
 		 * cuesta lo mismo aplicarla que saltársela.
 		 */
-		renderMeta(card, en) {
+		renderMeta(card) {
 			if (!this.modalMeta) return;
 			this.modalMeta.replaceChildren();
 
@@ -438,7 +474,7 @@
 				enlace.href = url;
 				enlace.target = '_blank';
 				enlace.rel = 'noopener';
-				enlace.textContent = en ? 'Verify on Platzi' : 'Verificar en Platzi';
+				enlace.textContent = t('verificar');
 				this.modalMeta.appendChild(enlace);
 			}
 		},
@@ -478,16 +514,10 @@
 
 			// El número sale del DOM, no de una constante: si mañana cambia el
 			// reparto entre destacadas y colapsadas, la etiqueta lo sigue sola.
-			this.en = document.documentElement.lang === 'en';
 			this.btn.hidden = false;
 			this.render();
 
-			const alternar = (e) => {
-				e.preventDefault();
-				this.toggle();
-			};
-			this.btn.addEventListener('click', alternar);
-			this.btn.addEventListener('touchend', alternar);
+			onActivate(this.btn, () => this.toggle());
 		},
 
 		get expandido() {
@@ -495,10 +525,9 @@
 		},
 
 		render() {
-			const n = this.extras.length;
 			this.btn.textContent = this.expandido
-				? (this.en ? 'Show fewer' : 'Ver menos')
-				: (this.en ? `Show ${n} more certifications` : `Ver ${n} certificaciones más`);
+				? t('verMenos')
+				: t('verMas', this.extras.length);
 			this.btn.setAttribute('aria-expanded', String(this.expandido));
 		},
 
@@ -571,10 +600,7 @@
 					credentials: 'omit'
 				});
 
-				if (response.ok) {
-					const data = await response.json();
-					console.log('✅ Visit tracked:', data.timestamp);
-				}
+				await response.json();
 			} catch (error) {
 				// Silenciar errores de analytics para no afectar UX
 				console.debug('Analytics tracking failed:', error.message);
@@ -587,8 +613,6 @@
 	   ============================================ */
 	
 	function init() {
-		console.log('CV JS initialized');
-
 		// Lo primero, antes de cualquier módulo: hay CSS que depende de este
 		// atributo (las certificaciones colapsadas). Marcarlo al final dejaba
 		// un parpadeo en el que se veían las diecinueve tarjetas y acto seguido
@@ -605,8 +629,6 @@
 		CertsToggle.init();
 		PrintHandler.init();
 		Analytics.init();
-
-		console.log('All modules loaded');
 	}
 
 	// Run on DOM ready

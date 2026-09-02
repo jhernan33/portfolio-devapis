@@ -1,0 +1,11 @@
+{
+  "name": "cv-e2e",
+  "private": true,
+  "description": "Tests de extremo a extremo del CV. Viven aquí y no en src/ porque el sitio se sirve sin build ni dependencias.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}

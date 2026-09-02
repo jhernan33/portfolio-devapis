@@ -34,6 +34,10 @@
 	<link rel="alternate" hreflang="en" href="https://devapis.cloud/cv/en/">
 	<link rel="alternate" hreflang="x-default" href="https://devapis.cloud/cv">
 	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' font-weight='bold' fill='%230ea5e9'>JV</text></svg>">
+	<!-- Sin defer y antes de la hoja de estilos: aplica el tema guardado antes
+	     del primer pintado. Con main.js (que sí es defer) la página se pintaba
+	     en claro y saltaba a oscuro. -->
+	<script src="/cv/theme-init.js"></script>
 	<link rel="stylesheet" href="/cv/styles.css">
 	<title>José Hernán Varela - Senior Backend Developer</title>
 
@@ -62,7 +66,7 @@
 			"knowsAbout": [
 				"Python", "Django", "Django REST Framework", "FastAPI",
 				"PostgreSQL", "PostGIS", "Docker", "Traefik", "Nginx",
-				"Linux", "PHP", "Laravel", "APIs REST", "Microservicios"
+				"Linux", "PHP", "Laravel", "APIs REST", "Microservices"
 			],
 			"knowsLanguage": [
 				{ "@type": "Language", "name": "Spanish", "alternateName": "es" },
@@ -214,7 +218,7 @@
 								<h3 class="timeline__role">IT Manager</h3>
 								<p class="timeline__company">PCVARELAVENEZUELA</p>
 							</div>
-							<time class="timeline__period">2011 - Presente</time>
+							<time class="timeline__period">2011 - Present</time>
 						</header>
 						<ul class="timeline__achievements">
 							<li>I lead the IT department and the full technology infrastructure</li>
@@ -281,7 +285,7 @@
 							<span class="chip">PHP</span>
 							<span class="chip">Laravel</span>
 							<span class="chip">Lumen</span>
-							<span class="chip">Microservicios</span>
+							<span class="chip">Microservices</span>
 							<span class="chip">WebSockets</span>
 							<span class="chip">PostgreSQL</span>
 							<span class="chip">MySQL</span>
@@ -578,7 +582,7 @@
 					<div class="cert-card__content">
 						<h4 class="cert-card__title">Linux Servers</h4>
 						<span class="cert-card__category">DevOps</span>
-						<span class="cert-card__meta">Platzi · jul 2026</span>
+						<span class="cert-card__meta">Platzi · Jul 2026</span>
 					</div>
 				</a>
 				<a class="cert-card cert-card--verify"
@@ -796,7 +800,7 @@
 			<div class="cert-modal__content">
 				<header class="cert-modal__header">
 					<h4 class="cert-modal__title" id="cert-modal-title"></h4>
-					<button class="cert-modal__close" aria-label="Cerrar">
+					<button class="cert-modal__close" aria-label="Close">
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<line x1="18" y1="6" x2="6" y2="18"></line>
 							<line x1="6" y1="6" x2="18" y2="18"></line>

@@ -42,3 +42,9 @@ Thumbs.db
 /*.png
 /*.jpg
 /*.jpeg
+
+# Tests de extremo a extremo (tools/e2e). El código sí se versiona; el
+# navegador que descarga Playwright y sus informes, no.
+tools/e2e/node_modules/
+tools/e2e/test-results/
+tools/e2e/playwright-report/
