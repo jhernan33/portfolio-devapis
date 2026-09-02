@@ -13,9 +13,18 @@
 #   * /api/track con 401: el router cayendo en el panel de Traefik.
 #   * /api/analytics sin credenciales: las estadísticas quedándose abiertas.
 #
+# Reintenta antes de dar nada por roto. Traefik descubre los contenedores por
+# eventos de Docker y tarda unos segundos en rehacer su tabla de rutas: justo
+# después de recrear los servicios, las peticiones caen en su panel y devuelven
+# 401 o 404 aunque el backend esté perfectamente. Eso hizo fallar un despliegue
+# que en realidad había ido bien, y disparó una vuelta atrás innecesaria. Media
+# docena de intentos separados por unos segundos cubre esa ventana sin tapar
+# una caída de verdad, que dura mucho más.
+#
 # Uso:
-#   ./tools/verificar-produccion.sh                      # https://devapis.cloud
+#   ./tools/verificar-produccion.sh                       # https://devapis.cloud
 #   ./tools/verificar-produccion.sh http://localhost:8080
+#   INTENTOS=1 ./tools/verificar-produccion.sh            # sin reintentos
 #
 # Sale con 0 si todo está bien y con 1 si algo falla, describiendo qué.
 
@@ -23,12 +32,14 @@ set -uo pipefail
 
 BASE="${1:-https://devapis.cloud}"
 TIEMPO=15
-fallos=0
+INTENTOS="${INTENTOS:-6}"
+ESPERA="${ESPERA:-5}"
 
 fallo() { echo "  ✗ $1"; fallos=$((fallos + 1)); }
 bien()  { echo "  ✓ $1"; }
 
-echo "Verificando $BASE"
+comprobar() {
+fallos=0
 
 # --------------------------------------------------------------- el CV
 cabeceras=$(curl -s -D - -o /dev/null --max-time "$TIEMPO" "$BASE/cv/" || true)
@@ -79,9 +90,28 @@ else
     esac
 fi
 
-if [ "$fallos" -eq 0 ]; then
-    echo "Todo correcto."
-else
-    echo "$fallos comprobaciones fallidas."
-fi
-exit $((fallos > 0))
+return $fallos
+}
+
+for intento in $(seq 1 "$INTENTOS"); do
+    salida=$(comprobar)
+    resultado=$?
+
+    if [ "$resultado" -eq 0 ]; then
+        echo "Verificando $BASE"
+        printf '%s\n' "$salida"
+        [ "$intento" -gt 1 ] && echo "  (correcto al intento $intento de $INTENTOS)"
+        echo "Todo correcto."
+        exit 0
+    fi
+
+    if [ "$intento" -lt "$INTENTOS" ]; then
+        echo "Intento $intento de $INTENTOS: $resultado comprobaciones fallidas, reintentando en ${ESPERA}s..."
+        sleep "$ESPERA"
+    fi
+done
+
+echo "Verificando $BASE"
+printf '%s\n' "$salida"
+echo "$resultado comprobaciones fallidas tras $INTENTOS intentos."
+exit 1

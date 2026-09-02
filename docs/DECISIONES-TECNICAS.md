@@ -523,7 +523,36 @@ permite trabajar sin esa dependencia.
 
 ---
 
-## 13. Próximos pasos
+## 13. Una vuelta atrás que no hacía falta (septiembre 2026)
+
+El primer despliegue con vuelta atrás automática falló y volvió atrás. El
+código estaba bien: las migraciones se aplicaron, los dos contenedores
+quedaron sanos y el backend contestaba en su propio health check. Lo que
+falló fue la verificación desde fuera, seis segundos después de recrear los
+contenedores: `/health` devolvió 404 y `/api/track`, un 401 con
+`realm="traefik"`.
+
+Es el síntoma conocido de este proyecto —la petición no llega al backend—
+pero por un motivo nuevo: **Traefik descubre los contenedores por eventos de
+Docker y tarda unos segundos en rehacer su tabla de rutas.** Durante esa
+ventana no hay ningún router que case y todo cae en su panel. El script
+anterior lo tapaba sin saberlo con un `sleep 10` fijo; al sustituirlo por una
+espera al estado de salud real, que es más rápida, la ventana quedó al
+descubierto.
+
+La corrección no es volver al `sleep`: es que `verificar-produccion.sh`
+reintente hasta seis veces separadas por cinco segundos. Media docena de
+intentos cubre el arranque sin tapar una caída de verdad, que dura mucho más,
+y de paso evita que el monitor abra un issue por un parpadeo.
+
+Lo que sí funcionó exactamente como estaba diseñado: **la vuelta atrás dejó
+el sitio en pie.** Producción siguió sirviendo el CV, aceptando tracking y
+protegiendo las estadísticas con la versión anterior mientras se corregía
+esto. Un despliegue fallido dejó de significar un sitio caído.
+
+---
+
+## 14. Próximos pasos
 
 - **Despliegue automático**: `deploy.yml` ya actualiza el VPS cuando la CI pasa
   en `main` y verifica el resultado desde fuera; queda configurar los secretos

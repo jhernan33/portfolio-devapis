@@ -93,6 +93,9 @@ done
 if [ "$sano" -eq 1 ]; then
     echo ""
     echo "🔍 Verificando producción..."
+    # El script reintenta por su cuenta: Traefik tarda unos segundos en rehacer
+    # su tabla de rutas tras recrear los contenedores, y durante esa ventana las
+    # peticiones caen en su panel aunque el backend esté perfecto.
     ./tools/verificar-produccion.sh || sano=0
 fi
 
