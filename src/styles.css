@@ -1373,9 +1373,12 @@ strong {
 	color: rgba(255, 255, 255, 0.7);
 }
 
-/* Descargas del CV en formato ATS. Van aquí, junto a la disponibilidad, y no
-   en la navegación: el botón PDF de arriba imprime esta misma página, y dos
-   cosas llamadas "PDF" en la misma barra se confunden. */
+/* Descargas del CV en formato ATS. Duplican a propósito el botón de la
+   navegación: arriba para quien escanea, aquí para quien llega leyendo hasta
+   el final. Es el mismo fichero, así que no hay ambigüedad. El DOCX solo
+   está aquí -varias agencias reformatean el CV antes de pasarlo al cliente,
+   y algunos portales viejos lo parsean mejor que un PDF- pero sin competir
+   con el PDF en la barra. */
 .cta-box__downloads {
 	margin-top: var(--space-3);
 	font-size: var(--text-xs);
@@ -1399,13 +1402,6 @@ strong {
 .cta-box__downloads a:hover,
 .cta-box__downloads a:focus-visible {
 	background: rgba(255, 255, 255, 0.18);
-}
-
-/* En papel no hay nada que descargar. */
-@media print {
-	.cta-box__downloads {
-		display: none;
-	}
 }
 
 .cta-box__button {
@@ -1617,14 +1613,53 @@ strong {
 		border: 1px solid #ddd;
 	}
 
-	a[href]::after {
+	/* La dirección solo se imprime donde el texto del enlace no la dice ya.
+	   Antes se añadía a todo `a[href]` y se quitaba a mano en .contact-card,
+	   con dos efectos opuestos: metía las cinco URL de Platzi -sesenta
+	   caracteres cada una- en mitad de la lista de certificaciones, y a la
+	   vez dejaba sin destino la tarjeta de LinkedIn, cuyo texto visible es
+	   solo "LinkedIn". Ahora se declara dónde aporta en vez de dónde
+	   estorba: el correo y la de GitHub ya enseñan la dirección como texto
+	   del enlace y no necesitan nada detrás. */
+	.contact-card[href*="linkedin"]::after,
+	.project-card__features a[href]::after,
+	.footer__links a[href^="http"]::after {
 		content: " (" attr(href) ")";
 		font-size: 9pt;
 		color: #666;
+		word-break: break-all;
 	}
 
-	.contact-card::after {
-		content: none;
+	/* La caja de disponibilidad es texto blanco sobre un degradado, y los
+	   navegadores no imprimen fondos por omisión: en papel salía blanco
+	   sobre blanco, invisible entera -título, jornada y disponibilidad
+	   incluidos-. Aquí se le da tinta. */
+	.cta-box {
+		background: none;
+		border: 1px solid #ddd;
+	}
+
+	.cta-box__title,
+	.cta-box__text {
+		color: #000;
+	}
+
+	.cta-box__meta,
+	.cta-box__downloads {
+		color: #444;
+	}
+
+	.cta-box__downloads a {
+		color: #000;
+		border-color: #999;
+	}
+
+	/* `attr(href)` no sirve para estos dos: son rutas relativas, ilegibles
+	   en papel. Se escribe la dirección del sitio, que además es lo único
+	   que la hoja impresa no dice en ningún otro punto. Sin texto alrededor
+	   para que valga igual en la versión española y en la inglesa. */
+	.cta-box__downloads::after {
+		content: "— devapis.cloud/cv";
 	}
 }
 
