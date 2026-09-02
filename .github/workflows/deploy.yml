@@ -110,13 +110,26 @@ jobs:
                ./update-production.sh"
 
       # El despliegue no ha terminado hasta que se comprueba desde fuera. Las
-      # tres verificaciones corresponden a fallos que este proyecto ya tuvo:
-      # el backend caído por DB_HOST, el tracking robado por el panel de
-      # Traefik y las estadísticas quedándose abiertas.
+      # verificaciones corresponden a fallos que este proyecto ya tuvo: el
+      # backend caído por DB_HOST, el tracking robado por el panel de Traefik,
+      # las estadísticas quedándose abiertas y Nginx sirviendo sin ninguna
+      # cabecera de seguridad.
       - name: Verificar producción
         if: steps.comprobar.outputs.listo == 'si'
         run: |
           fallos=0
+
+          echo "→ /cv (debe responder y llevar las cabeceras de seguridad)"
+          cabeceras=$(curl -s -D - -o /dev/null --max-time 15 https://devapis.cloud/cv/ || true)
+          if ! printf '%s\n' "$cabeceras" | grep -q '^HTTP/[0-9.]* 200'; then
+            echo "::error::/cv no responde 200. Si el frontend acaba de cambiar de imagen, ¿se reconstruyó (puerto 8080)?"
+            fallos=1
+          elif ! printf '%s\n' "$cabeceras" | grep -qi '^content-security-policy:'; then
+            echo "::error::/cv responde sin Content-Security-Policy: las cabeceras de Nginx no están llegando."
+            fallos=1
+          else
+            echo "  OK"
+          fi
 
           echo "→ /health"
           if curl -fsS --max-time 15 https://devapis.cloud/health | grep -q '"healthy"'; then

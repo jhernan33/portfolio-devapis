@@ -420,3 +420,70 @@ jobs:
       - name: Construir la imagen del backend
         run: docker build -t cv-analytics:ci ./backend
 
+      # Ningún contenedor corre como root. /api/track acepta escrituras
+      # públicas: si algo escapa del proceso, que no tenga privilegios. Cada
+      # pieza depende de la anterior: la imagen unprivileged obliga a escuchar
+      # en 8080, y el compose tiene que apuntar a ese puerto.
+      - name: Los contenedores no corren como root
+        env:
+          DB_HOST: postgres-ci
+          DB_NAME: ci
+          DB_USER: ci
+          DB_PASSWORD: ci
+          ANALYTICS_USER: ci
+          ANALYTICS_PASSWORD: ci
+          ANALYTICS_IP_SALT: ci
+        run: |
+          fallos=0
+          grep -qE '^USER app' backend/Dockerfile || { echo "::error::backend/Dockerfile no declara USER app"; fallos=1; }
+          grep -qE '^FROM nginxinc/nginx-unprivileged' Dockerfile || { echo "::error::El Dockerfile del frontend no usa nginx-unprivileged"; fallos=1; }
+          grep -qE '^\s*listen 8080 ' nginx.conf || { echo "::error::nginx.conf debe escuchar en 8080: sin root no puede abrir el 80"; fallos=1; }
+          grep -q 'loadbalancer.server.port=8080' docker-compose.yaml || { echo "::error::El compose sigue enviando el tráfico del CV al puerto 80"; fallos=1; }
+          # Se lee el compose ya resuelto, no el YAML a mano, para que cuente lo
+          # que Docker aplicará de verdad (incluye anclas y extensiones).
+          docker compose config --format json > "$RUNNER_TEMP/compose.json"
+          python3 - "$RUNNER_TEMP/compose.json" <<'PY' || fallos=1
+          import json, sys
+          servicios = json.load(open(sys.argv[1]))["services"]
+          fallos = []
+          for nombre in ("cv", "analytics-api"):
+              s = servicios[nombre]
+              if "no-new-privileges:true" not in s.get("security_opt", []):
+                  fallos.append(f"{nombre}: falta security_opt no-new-privileges")
+              if "ALL" not in s.get("cap_drop", []):
+                  fallos.append(f"{nombre}: falta cap_drop ALL")
+              if not s.get("read_only"):
+                  fallos.append(f"{nombre}: el sistema de ficheros no es read_only")
+          if fallos:
+              sys.exit("::error::" + " · ".join(fallos))
+          print("Endurecimiento presente en cv y analytics-api")
+          PY
+          exit $fallos
+
+      # Nginx no acumula add_header entre niveles: un location con su propio
+      # Cache-Control pierde la CSP y el HSTS del bloque server. Así estuvo el
+      # sitio en producción, sin ninguna cabecera de seguridad en ninguna
+      # respuesta, y no hay forma de verlo sin arrancar Nginx. Por eso esto
+      # construye la imagen real y la interroga.
+      - name: Nginx envía las cabeceras de seguridad en todas las respuestas
+        run: |
+          docker build -q -t landpage:ci . > /dev/null
+          docker run -d --rm --name landpage-ci -p 8080:8080 \
+            --read-only --tmpfs /tmp --tmpfs /var/cache/nginx \
+            --cap-drop ALL --security-opt no-new-privileges:true landpage:ci > /dev/null
+          for i in $(seq 1 20); do curl -fs http://localhost:8080/ > /dev/null && break; sleep 1; done
+          fallos=0
+          for ruta in / /en/ /styles.css /main.js /assets/images/Django.webp /no-existe; do
+            cab=$(curl -s -D - -o /dev/null "http://localhost:8080$ruta")
+            for h in content-security-policy strict-transport-security x-content-type-options x-frame-options; do
+              echo "$cab" | grep -qi "^$h:" || { echo "::error::$ruta sin cabecera $h"; fallos=1; }
+            done
+            n=$(echo "$cab" | grep -ci '^cache-control:')
+            [ "$n" -eq 1 ] || { echo "::error::$ruta lleva $n cabeceras Cache-Control (debe ser 1)"; fallos=1; }
+          done
+          [ "$(docker exec landpage-ci id -u)" != "0" ] || { echo "::error::Nginx corre como root"; fallos=1; }
+          # emerg/crit/alert y no error: un 403 por la regla de .git también se
+          # registra como [error] y no es un fallo de arranque.
+          docker logs landpage-ci 2>&1 | grep -iE '\[(emerg|crit|alert)\]' && { echo "::error::Errores en el arranque de Nginx"; fallos=1; }
+          docker stop landpage-ci > /dev/null
+          exit $fallos

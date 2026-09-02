@@ -38,7 +38,7 @@ npx serve src/
 ### Frontend — Docker
 ```bash
 docker build -t landpage .
-docker run -p 8080:80 landpage   # → http://localhost:8080
+docker run -p 8080:8080 landpage   # → http://localhost:8080 (nginx-unprivileged listens on 8080)
 ```
 
 ### Backend — local
@@ -150,7 +150,7 @@ Key points:
 ### Deployment Architecture
 ```
 Browser (HTTPS) → Traefik (TLS termination, path routing on devapis.cloud)
-    ├─ PathPrefix(/cv)                      → strip /cv → cv (Nginx :80, serves src/)
+    ├─ PathPrefix(/cv)                      → strip /cv → cv (Nginx :8080, serves src/)
     ├─ Path(/api/track) or Path(/health)    → analytics-api  [router analytics-public,
     │                                          priority 100, rate-limited]
     └─ PathPrefix(/api/analytics)           → analytics-api  [router analytics-private,
@@ -182,6 +182,22 @@ rather than from memory or from this file — `docker ps --format '{{.Names}}' |
 — and confirm the container shares a network with `analytics-api`. Traefik uses cert
 resolver `resolver` for automatic TLS. Routing labels live in `docker-compose.yaml`;
 the `/cv` prefix is stripped by the `cv-stripprefix` middleware before reaching Nginx.
+
+**Containers run without root.** The frontend image is `nginxinc/nginx-unprivileged`
+(uid 101) and therefore listens on **8080**, not 80: a non-root process cannot bind a
+privileged port, and putting `listen 80` back kills the container at startup. The
+backend image creates a system user `app` and switches to it before `CMD`. Both
+services in `docker-compose.yaml` run with `no-new-privileges`, `cap_drop: ALL` and a
+`read_only` filesystem with `tmpfs` on `/tmp` — so nothing in either service may write
+to disk. The CI `compose` job checks all of this.
+
+**Security headers live in `nginx-security-headers.conf`, included in `server` *and* in
+every `location` that sets a header.** Nginx does not merge `add_header` across levels:
+a `location` with its own `Cache-Control` drops *all* headers inherited from `server`.
+With the headers written only at server level, **no response carried the CSP or HSTS**,
+in production, for months, with no visible symptom. If you add a `location` with an
+`add_header`, add the `include` too. The CI `compose` job boots the image and checks
+every route for the four headers and for exactly one `Cache-Control`.
 
 **Nginx (`nginx.conf`):** only a `server {}` block (global directives were removed — they conflict with `nginx:1.27-alpine` defaults and caused `duplicate directive` startup crashes; keep it that way). SPA fallback (404→index.html), `index.html` no-cache, assets cached 1y immutable, security headers (CSP restricts scripts to `'self'`, so keep JS in external `main.js`), gzip, `.git`/dotfiles blocked.
 

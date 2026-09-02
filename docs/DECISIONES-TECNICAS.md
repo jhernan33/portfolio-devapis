@@ -283,7 +283,53 @@ que un cambio de prefijo no la deje comprobando nada.
 
 ---
 
-## 7. Próximos pasos
+## 7. Contenedores sin root (septiembre 2026)
+
+Ningún Dockerfile declaraba `USER`: Nginx y el backend corrían como root
+dentro del contenedor, y el backend acepta escrituras públicas en
+`/api/track`. Si algo escapa del proceso, no debería tener privilegios.
+
+- El frontend usa `nginxinc/nginx-unprivileged`, que corre como uid 101. Eso
+  obliga a escuchar en **8080**: un proceso sin root no puede abrir el 80.
+  Cambian `nginx.conf`, la etiqueta `loadbalancer.server.port` y los health
+  checks; el visitante no ve ninguna diferencia porque Traefik sigue
+  publicando el 443.
+- El backend crea un usuario de sistema `app` y cambia a él antes del `CMD`.
+- Ambos servicios llevan `no-new-privileges`, `cap_drop: ALL` y `read_only`
+  con `tmpfs` en `/tmp`. Se comprobó en local que ninguno de los dos necesita
+  escribir en disco: Nginx dirige sus temporales a `/tmp` y el backend no
+  genera ni `.pyc`.
+
+Una guarda de CI en el job `compose` vigila las cuatro piezas, porque dependen
+unas de otras: volver a `listen 80` con la imagen sin privilegios mata el
+contenedor al arrancar.
+
+---
+
+## 8. Las cabeceras de seguridad no se enviaban (septiembre 2026)
+
+Al verificar los contenedores sin root se interrogó a Nginx respuesta por
+respuesta y **ninguna llevaba CSP, HSTS, `X-Frame-Options` ni `nosniff`**.
+Se comprobó contra la configuración original: en producción tampoco.
+
+La causa es una regla de Nginx poco intuitiva: `add_header` no se acumula
+entre niveles. En cuanto un `location` declara una cabecera propia, deja de
+heredar todas las del bloque `server`. Los tres `location` que sirven el
+sitio declaran `Cache-Control`, así que las cabeceras de seguridad, escritas
+solo en `server`, no llegaban a nada. La CSP de la que dependía la guarda
+"sin JavaScript inline" no estaba activa.
+
+Arreglo: las cabeceras pasan a `nginx-security-headers.conf`, que se incluye
+en `server` y en cada `location` con `add_header`. De paso desaparece el
+`Cache-Control` duplicado que generaba `expires` junto al `add_header`.
+
+No hay forma de detectar esto leyendo la configuración, así que la guarda de
+CI construye la imagen, la arranca y comprueba en seis rutas que lleguen las
+cuatro cabeceras y un único `Cache-Control`.
+
+---
+
+## 9. Próximos pasos
 
 - **Despliegue automático**: `deploy.yml` ya actualiza el VPS cuando la CI pasa
   en `main` y verifica el resultado desde fuera; queda configurar los secretos

@@ -10,7 +10,13 @@ LABEL description="CV Analytics API - FastAPI"
 # Variables de entorno
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Usuario de sistema sin shell ni home. El servicio acepta escrituras públicas
+# en /api/track: si algo escapa del proceso, que no sea root. Se crea antes de
+# copiar nada para que la capa no cambie con cada edición del código.
+RUN useradd --system --no-create-home --shell /usr/sbin/nologin app
 
 WORKDIR /app
 
@@ -33,6 +39,12 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \
 
 # Exponer puerto
 EXPOSE 8000
+
+# A partir de aquí todo corre como `app`. El código se copió como root y es
+# solo lectura para este usuario: el servicio no escribe en disco
+# (PYTHONDONTWRITEBYTECODE evita incluso los .pyc), y el compose monta el
+# sistema de ficheros como read_only.
+USER app
 
 # Comando de inicio
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

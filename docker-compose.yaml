@@ -16,7 +16,8 @@ services:
       - "traefik.http.routers.cv.middlewares=cv-stripprefix@docker"
       # Service binding
       - "traefik.http.routers.cv.service=cv"
-      - "traefik.http.services.cv.loadbalancer.server.port=80"
+      # 8080 y no 80: la imagen es nginx-unprivileged y no corre como root.
+      - "traefik.http.services.cv.loadbalancer.server.port=8080"
 
       # ------------------------------------------------------------------
       # robots.txt y sitemap.xml en la RAÍZ del dominio.
@@ -34,10 +35,22 @@ services:
       - "traefik.http.routers.cv-seo.service=cv"
     volumes:
       - ./src:/usr/share/nginx/html:ro,z
+    # Endurecimiento: el proceso no es root (imagen unprivileged), no puede
+    # ganar privilegios, no tiene capabilities y el sistema de ficheros es de
+    # solo lectura. Nginx solo necesita escribir sus temporales, que la imagen
+    # ya dirige a /tmp; el resto va a tmpfs por si acaso.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
     networks:
       - server
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -120,6 +133,15 @@ services:
 
       # Service binding compartido por ambos routers
       - "traefik.http.services.analytics.loadbalancer.server.port=8000"
+    # Mismo endurecimiento que `cv`. El servicio no escribe en disco: los .pyc
+    # están desactivados y la migración escribe en la base, no en ficheros.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     networks:
       # `server` lo comparte con Traefik; `db-internal`, con PostgreSQL.
       # El contenedor de la base no está en `server` a propósito, así que sin

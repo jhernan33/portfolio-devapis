@@ -60,7 +60,10 @@ Objetivo: poder ejecutar todo en local antes de tocar nada.
   partir de la undécima. Guarda de CI: todo router bajo `/api` declara un
   middleware de rate limit (extender la guarda de prioridades existente).
 
-### 1.2 Contenedores sin root
+### 1.2 Contenedores sin root — HECHA 2026-09-02
+Aplicada, y además de lo previsto: `no-new-privileges`, `cap_drop: ALL` y
+sistema de ficheros de solo lectura con `tmpfs` en ambos servicios, con guarda
+de CI en el job `compose`.
 - **Por qué:** `/api/track` acepta escrituras públicas. Si algo escapa del
   proceso, hoy es root dentro del contenedor.
 - **Qué:** `backend/Dockerfile`: `RUN adduser --system --no-create-home app` y
@@ -69,6 +72,12 @@ Objetivo: poder ejecutar todo en local antes de tocar nada.
   (etiqueta `loadbalancer.server.port` y healthcheck).
 - **Hecho cuando:** `docker compose exec analytics-api id` no devuelve uid 0 y
   el despliegue verifica los tres endpoints.
+
+### 1.2 bis. Cabeceras de seguridad de Nginx — HECHA 2026-09-02
+Hallazgo durante la verificación de 1.2: ninguna respuesta de Nginx llevaba
+CSP ni HSTS, en producción incluida, porque `add_header` en un `location`
+anula los heredados. Cabeceras movidas a `nginx-security-headers.conf` e
+incluidas en cada nivel; guarda de CI que arranca la imagen y lo comprueba.
 
 ### 1.3 Cabeceras de seguridad en las respuestas de FastAPI
 - **Por qué:** Nginx las pone en el CV, pero el dashboard y la API salen sin

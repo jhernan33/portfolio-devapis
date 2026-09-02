@@ -15,9 +15,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# 1. Rebuild del backend (cambió endpoint /dashboard → /analytics)
-echo "📦 Rebuilding backend analytics..."
-docker compose build analytics-api
+# 1. Reconstruir LAS DOS imágenes. `docker compose up` no reconstruye una
+#    imagen que ya existe, así que un cambio en un Dockerfile o en nginx.conf
+#    no llegaría a producción. Con el paso a nginx-unprivileged eso sería
+#    fatal: el compose envía el tráfico al 8080 y un Nginx antiguo sigue en
+#    el 80, con lo que el CV dejaría de responder.
+echo "📦 Reconstruyendo las imágenes (cv y analytics-api)..."
+docker compose build
 
 # 2. Recrear ambos servicios para aplicar cambios de red
 echo "🔄 Recreando servicios con nueva configuración..."
