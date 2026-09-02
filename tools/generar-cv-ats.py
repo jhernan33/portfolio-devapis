@@ -63,27 +63,49 @@ BORRADORES = RAIZ / ".borradores"
 # `python3 tools/generar-cv-ats.py --marcadores` genera en .borradores/ una
 # copia con "[CONFIRMAR: ___]" en el sitio exacto de cada hueco, para saber qué
 # hay que medir sin publicar nada a medias.
+# Hay un diccionario por idioma porque los separadores decimales y de millar no
+# son los mismos: "0,29 s" en español es "0.29 s" en inglés, y publicar el
+# formato equivocado delata que el documento está traducido a medias.
 METRICAS = {
-    # PCVARELAVENEZUELA
-    "personas_ti": None,          # personas o equipos que coordina
-    "sistemas_produccion": None,  # sistemas internos vivos en producción
-    "tamano_bd": None,            # tamaño aproximado de la base que administra
-    "anio_infra": None,           # año desde el que opera su propia infraestructura
-    "despliegue_antes": None,     # duración del despliegue manual (ej. "40 minutos")
-    "despliegue_despues": None,   # duración tras contenerizar (ej. "10 minutos")
-    # Delzam
-    "consulta_antes": None,       # latencia de la consulta más pesada, antes
-    "consulta_despues": None,     # la misma, después de optimizar
-    # Zippyttech
-    "microservicios": None,       # cuántos microservicios componían la plataforma
-    # Alcaldía de Guásimos
-    "tramites": None,             # trámites ciudadanos digitalizados
+    "es": {
+        # --- PCVARELAVENEZUELA · pendientes de medir ---
+        "sistemas_produccion": None,   # sistemas internos vivos en producción
+        "tamano_bd": None,             # tamaño de la base que administra
+        "despliegue_antes": None,      # duración del despliegue manual
+        "despliegue_despues": None,    # duración tras contenerizar
+
+        # --- Delzam · medido sobre el sistema, endpoint por endpoint ---
+        # De la tabla de medición: la ruta más pesada pasó de más de 9.000
+        # consultas y 62 s a una sola consulta y 0,29 s. Se publica esa, no el
+        # factor ×214: el "antes y después" se defiende en entrevista, un
+        # multiplicador suelto invita a preguntar de dónde sale.
+        "consultas_antes": "más de 9.000 consultas y 62 s",
+        "consultas_despues": "1 consulta y 0,29 s",
+
+        # --- Zippyttech ---
+        "microservicios": "3",
+
+        # --- Portafolio propio ---
+        "anio_infra": "2024",
+        "despliegue_propio": "18 s",
+    },
+    "en": {
+        "sistemas_produccion": None,
+        "tamano_bd": None,
+        "despliegue_antes": None,
+        "despliegue_despues": None,
+        "consultas_antes": "over 9,000 queries and 62 s",
+        "consultas_despues": "a single query and 0.29 s",
+        "microservicios": "3",
+        "anio_infra": "2024",
+        "despliegue_propio": "18 s",
+    },
 }
 
 SIN_CONFIRMAR = "[CONFIRMAR: ___]"
 
 
-def resolver_punto(punto, marcadores: bool) -> str:
+def resolver_punto(punto, cifras: dict, marcadores: bool) -> str:
     """
     Devuelve el texto de una viñeta.
 
@@ -95,17 +117,17 @@ def resolver_punto(punto, marcadores: bool) -> str:
     if isinstance(punto, str):
         return punto
 
-    faltan = [c for c in punto["metricas"] if not METRICAS.get(c)]
-    if not faltan:
-        return punto["cuantificada"].format(**METRICAS)
+    if all(cifras.get(c) for c in punto["metricas"]):
+        return punto["cuantificada"].format(**cifras)
     if marcadores:
-        valores = {c: (METRICAS.get(c) or SIN_CONFIRMAR) for c in punto["metricas"]}
+        valores = {c: (cifras.get(c) or SIN_CONFIRMAR) for c in punto["metricas"]}
         return punto["cuantificada"].format(**valores)
     return punto["base"]
 
 # ---------------------------------------------------------------- contenido
 
 ES = {
+    "idioma": "es",
     "nombre": "José Hernán Varela",
     "titular": "Senior Backend Developer",
     "contacto": [
@@ -137,12 +159,12 @@ ES = {
             "fechas": "05/2011 – Presente",
             "vinculo": "Tiempo completo",
             "puntos": [
-                {
-                    "base": "Lidero el departamento de TI y la infraestructura tecnológica completa.",
-                    "cuantificada": "Lidero el departamento de TI y la infraestructura tecnológica"
-                                    " completa, coordinando un equipo de {personas_ti}.",
-                    "metricas": ["personas_ti"],
-                },
+                # "Coordinando un equipo de 1" se lee mal y vende menos que la
+                # verdad: es el único responsable del área, así que la propiedad
+                # del trabajo es completa. Para un puesto remoto eso es
+                # exactamente lo que se busca.
+                "Único responsable del departamento de TI y de la infraestructura tecnológica"
+                " completa: desarrollo, servidores, bases de datos y despliegue.",
                 {
                     "base": "Desarrollo sistemas internos con Python y Django que automatizan"
                             " procesos antes manuales.",
@@ -187,10 +209,10 @@ ES = {
                 "Integración de servicios sobre esa API.",
                 {
                     "base": "Optimización de consultas PostgreSQL en las rutas de mayor uso.",
-                    "cuantificada": "Optimización de consultas PostgreSQL en las rutas de mayor"
-                                    " uso: la más pesada bajó de {consulta_antes} a"
-                                    " {consulta_despues}.",
-                    "metricas": ["consulta_antes", "consulta_despues"],
+                    "cuantificada": "Eliminación de consultas N+1 en las rutas de mayor uso: el"
+                                    " endpoint más pesado pasó de {consultas_antes} a"
+                                    " {consultas_despues}.",
+                    "metricas": ["consultas_antes", "consultas_despues"],
                 },
             ],
             "stack": "Django, Django REST Framework, PostgreSQL, Docker, Vue.js",
@@ -219,12 +241,8 @@ ES = {
             "fechas": "02/2020 – 05/2022",
             "vinculo": "Contrato, en paralelo a PCVARELAVENEZUELA",
             "puntos": [
-                {
-                    "base": "Plataforma de gestión municipal para trámites ciudadanos.",
-                    "cuantificada": "Plataforma de gestión municipal que digitalizó"
-                                    " {tramites} trámites ciudadanos.",
-                    "metricas": ["tramites"],
-                },
+                "Actualización y optimización del sistema de partidas del registro civil.",
+                "Portal web del municipio.",
                 "Sistemas de información geográfica con PostGIS.",
                 "Administración de los servidores que dan servicio a la plataforma.",
                 "Integración con sistemas gubernamentales existentes.",
@@ -248,6 +266,21 @@ ES = {
             "url": "https://github.com/jhernan33/portfolio-devapis",
             "puntos": [
                 "Sitio estático sin dependencias servido por Nginx, con servicio propio de analítica en FastAPI y PostgreSQL, tras Traefik y sobre Docker Compose.",
+                {
+                    "base": "Infraestructura propia en producción, operada de forma"
+                            " ininterrumpida.",
+                    "cuantificada": "Infraestructura propia en producción, operada de forma"
+                                    " ininterrumpida desde {anio_infra}.",
+                    "metricas": ["anio_infra"],
+                },
+                {
+                    "base": "Despliegue automatizado con verificación externa y vuelta atrás"
+                            " automática si la comprobación falla.",
+                    "cuantificada": "Despliegue automatizado en {despliegue_propio} —construcción,"
+                                    " recreación, espera a estado sano y verificación externa— con"
+                                    " vuelta atrás automática si la comprobación falla.",
+                    "metricas": ["despliegue_propio"],
+                },
                 "Las direcciones IP de los visitantes no se almacenan: se guardan la red truncada y un hash con sal.",
                 "La autenticación vive en la aplicación y no en el proxy, de modo que la protección viaja con el código.",
             ],
@@ -300,6 +333,7 @@ ES = {
 }
 
 EN = {
+    "idioma": "en",
     "nombre": "José Hernán Varela",
     "titular": "Senior Backend Developer",
     "contacto": [
@@ -325,12 +359,8 @@ EN = {
             "fechas": "May 2011 – Present",
             "vinculo": "Full-time",
             "puntos": [
-                {
-                    "base": "I lead the IT department and the full technology infrastructure.",
-                    "cuantificada": "I lead the IT department and the full technology"
-                                    " infrastructure, coordinating a team of {personas_ti}.",
-                    "metricas": ["personas_ti"],
-                },
+                "Sole owner of the IT department and the full technology infrastructure:"
+                " development, servers, databases and deployment.",
                 {
                     "base": "I build internal systems in Python and Django that automate"
                             " previously manual processes.",
@@ -375,10 +405,10 @@ EN = {
                 "Service integration on top of that API.",
                 {
                     "base": "PostgreSQL query optimisation on the most heavily used endpoints.",
-                    "cuantificada": "PostgreSQL query optimisation on the most heavily used"
-                                    " endpoints: the heaviest query went from {consulta_antes} to"
-                                    " {consulta_despues}.",
-                    "metricas": ["consulta_antes", "consulta_despues"],
+                    "cuantificada": "Eliminated N+1 queries on the most heavily used endpoints:"
+                                    " the heaviest one went from {consultas_antes} to"
+                                    " {consultas_despues}.",
+                    "metricas": ["consultas_antes", "consultas_despues"],
                 },
             ],
             "stack": "Django, Django REST Framework, PostgreSQL, Docker, Vue.js",
@@ -407,12 +437,8 @@ EN = {
             "fechas": "Feb 2020 – May 2022",
             "vinculo": "Contract, alongside PCVARELAVENEZUELA",
             "puntos": [
-                {
-                    "base": "Municipal platform for citizen administrative procedures.",
-                    "cuantificada": "Municipal platform that digitised {tramites} citizen"
-                                    " administrative procedures.",
-                    "metricas": ["tramites"],
-                },
+                "Overhaul and optimisation of the civil registry records system.",
+                "Municipal public website.",
                 "Geographic information systems with PostGIS.",
                 "Administration of the servers running the platform.",
                 "Integration with existing government systems.",
@@ -436,6 +462,21 @@ EN = {
             "url": "https://github.com/jhernan33/portfolio-devapis",
             "puntos": [
                 "Dependency-free static site served by Nginx, with a self-hosted analytics service in FastAPI and PostgreSQL, behind Traefik and running on Docker Compose.",
+                {
+                    "base": "Self-managed infrastructure in production, running without"
+                            " interruption.",
+                    "cuantificada": "Self-managed infrastructure in production, running without"
+                                    " interruption since {anio_infra}.",
+                    "metricas": ["anio_infra"],
+                },
+                {
+                    "base": "Automated deployment with external verification and automatic"
+                            " rollback when the check fails.",
+                    "cuantificada": "Automated deployment in {despliegue_propio} — image build,"
+                                    " container recreation, health wait and external verification"
+                                    " — with automatic rollback when the check fails.",
+                    "metricas": ["despliegue_propio"],
+                },
                 "Visitor IP addresses are never stored: only the truncated network and a salted hash.",
                 "Authentication lives in the application rather than the proxy, so the protection ships with the code.",
             ],
@@ -551,19 +592,20 @@ def vineta(texto):
     return parrafo(f"- {texto}", sangria=284)
 
 
-def bloque_experiencia(d, e, marcadores):
+def bloque_experiencia(d, e, cifras, marcadores):
     """Un puesto: cabecera, fechas, viñetas y stack. Sin tablas ni columnas."""
     p = [
         parrafo(f'{e["puesto"]} - {e["empresa"]}', negrita=True, espacio_antes=120),
         parrafo(f'{e["fechas"]} | {e["vinculo"]}'),
     ]
     for punto in e["puntos"]:
-        p.append(vineta(resolver_punto(punto, marcadores)))
+        p.append(vineta(resolver_punto(punto, cifras, marcadores)))
     p.append(parrafo(f'{d["stack_etiqueta"]}: {e["stack"]}'))
     return p
 
 
 def construir_documento(d, marcadores: bool = False):
+    cifras = METRICAS[d["idioma"]]
     p = []
     p.append(parrafo(d["nombre"], negrita=True, tam=32))
     p.append(parrafo(d["titular"], tam=24))
@@ -575,7 +617,7 @@ def construir_documento(d, marcadores: bool = False):
 
     p.append(encabezado(d["experiencia_titulo"]))
     for e in d["experiencia"]:
-        p.extend(bloque_experiencia(d, e, marcadores))
+        p.extend(bloque_experiencia(d, e, cifras, marcadores))
 
     # Subtítulo en negrita, no un encabezado de sección: un segundo título en
     # mayúsculas aquí haría que un lector automático diera por cerrada la
@@ -583,7 +625,7 @@ def construir_documento(d, marcadores: bool = False):
     p.append(parrafo(d["experiencia_paralela_titulo"], negrita=True, espacio_antes=180))
     p.append(parrafo(d["experiencia_paralela_nota"]))
     for e in d["experiencia_paralela"]:
-        p.extend(bloque_experiencia(d, e, marcadores))
+        p.extend(bloque_experiencia(d, e, cifras, marcadores))
 
     p.append(encabezado(d["habilidades_titulo"]))
     for categoria, valores in d["habilidades"]:
@@ -595,7 +637,7 @@ def construir_documento(d, marcadores: bool = False):
         if pr["url"]:
             p.append(parrafo(pr["url"]))
         for punto in pr["puntos"]:
-            p.append(vineta(punto))
+            p.append(vineta(resolver_punto(punto, cifras, marcadores)))
         p.append(parrafo(f'{d["stack_etiqueta"]}: {pr["stack"]}'))
 
     p.append(encabezado(d["educacion_titulo"]))
@@ -663,7 +705,7 @@ def main() -> None:
         # sitio. Un borrador que se filtra hace más daño que la métrica que
         # intenta añadir.
         docx = BORRADORES / f"{nombre}-BORRADOR.docx"
-        pendientes = [c for c, v in METRICAS.items() if not v]
+        pendientes = [c for c, v in METRICAS[datos["idioma"]].items() if not v]
         escribir_docx(docx, datos, marcadores=True)
         print(f"  {docx.relative_to(RAIZ)}  ({docx.stat().st_size:,} bytes)")
         pdf = convertir_a_pdf(docx)
