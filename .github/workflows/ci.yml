@@ -134,6 +134,35 @@ jobs:
           python3 tools/generar-cv-ats.py --check
           python3 tools/generar-cv-ats.py --en --check
 
+      # src/documentos/ lo publica Nginx: el CV se descarga desde el propio
+      # sitio. Un marcador [CONFIRMAR: ___] olvidado dentro no rompe nada, no
+      # da ningún error y se lo lleva el primer reclutador que pulse el botón.
+      # Los borradores con marcadores van a .borradores/, que no se sirve.
+      - name: Ningún CV publicado con marcadores sin rellenar
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys, zipfile
+
+          fallos = []
+          for docx in sorted(pathlib.Path("src/documentos").glob("*.docx")):
+              with zipfile.ZipFile(docx) as z:
+                  texto = re.sub(r"<[^>]+>", "", z.read("word/document.xml").decode("utf-8"))
+              if "CONFIRMAR" in texto:
+                  fallos.append(docx.name)
+
+          for pdf in sorted(pathlib.Path("src/documentos").glob("*.pdf")):
+              # Los flujos de un PDF van comprimidos, pero LibreOffice deja el
+              # texto localizable en claro dentro de los objetos Tj más veces
+              # que no; se mira en bruto por si acaso.
+              if b"CONFIRMAR" in pdf.read_bytes():
+                  fallos.append(pdf.name)
+
+          if fallos:
+              sys.exit(f"::error::Documentos publicados con marcadores sin rellenar: {fallos}. "
+                       "Completa METRICAS en tools/generar-cv-ats.py y regenera.")
+          print("Los CV publicados no llevan marcadores")
+          PY
+
       # La tarjeta de previsualización es lo único del sitio que un reclutador
       # ve sin visitarlo. Si la imagen desaparece o cambia de medidas, LinkedIn
       # deja de dibujar la tarjeta y no hay forma de enterarse desde aquí.

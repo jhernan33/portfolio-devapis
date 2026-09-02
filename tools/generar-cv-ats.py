@@ -20,9 +20,17 @@ al repositorio, y el PDF sale de él con LibreOffice, de modo que ambos
 formatos vienen del mismo origen y no pueden divergir.
 
     python3 tools/generar-cv-ats.py
-    python3 tools/generar-cv-ats.py --en     # versión en inglés
+    python3 tools/generar-cv-ats.py --en           # versión en inglés
+    python3 tools/generar-cv-ats.py --marcadores   # borrador con [CONFIRMAR: ___]
 
-Todo dato factual sale de PERFIL-CANONICO.md. No inventar nada aquí.
+La experiencia se presenta en dos bloques: el puesto principal, y debajo los
+tres compromisos que fueron SIMULTÁNEOS a él. Leídos en una lista corrida,
+cuatro empleos que se solapan entre 2020 y 2022 parecen un error de fechas, y
+es de las primeras cosas que un reclutador descarta sin preguntar.
+
+Todo dato factual sale de PERFIL-CANONICO.md. No inventar nada aquí, y las
+cifras menos que nada: van en METRICAS, vacías hasta que el titular las
+confirme con evidencia.
 """
 import argparse
 import pathlib
@@ -34,6 +42,66 @@ from xml.sax.saxutils import escape
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 SALIDA = RAIZ / "src" / "documentos"
+
+# Los borradores con marcadores NO van a src/: todo lo que hay en esa carpeta
+# lo publica Nginx, y un reclutador podría descargarse un CV con "[CONFIRMAR:
+# ___]" dentro. Ese directorio está en .gitignore.
+BORRADORES = RAIZ / ".borradores"
+
+# ---------------------------------------------------------------- métricas
+#
+# Un CV sin una sola cifra se lee por encima; un CV con cifras que no puedes
+# defender en entrevista es peor. Por eso las métricas no están escritas dentro
+# de las viñetas, sino aquí, y cada viñeta trae dos redacciones: la cualitativa,
+# que es la que se publica mientras el dato no exista, y la cuantificada, que
+# solo aparece cuando el valor está confirmado.
+#
+# **Ninguna IA rellena esta tabla.** Los valores los aporta el titular con
+# evidencia (PERFIL-CANONICO.md, sección 5: "si no puedes explicar cómo lo
+# mediste en 20 segundos frente a un entrevistador, se elimina").
+#
+# `python3 tools/generar-cv-ats.py --marcadores` genera en .borradores/ una
+# copia con "[CONFIRMAR: ___]" en el sitio exacto de cada hueco, para saber qué
+# hay que medir sin publicar nada a medias.
+METRICAS = {
+    # PCVARELAVENEZUELA
+    "personas_ti": None,          # personas o equipos que coordina
+    "sistemas_produccion": None,  # sistemas internos vivos en producción
+    "tamano_bd": None,            # tamaño aproximado de la base que administra
+    "anio_infra": None,           # año desde el que opera su propia infraestructura
+    "despliegue_antes": None,     # duración del despliegue manual (ej. "40 minutos")
+    "despliegue_despues": None,   # duración tras contenerizar (ej. "10 minutos")
+    # Delzam
+    "consulta_antes": None,       # latencia de la consulta más pesada, antes
+    "consulta_despues": None,     # la misma, después de optimizar
+    # Zippyttech
+    "microservicios": None,       # cuántos microservicios componían la plataforma
+    # Alcaldía de Guásimos
+    "tramites": None,             # trámites ciudadanos digitalizados
+}
+
+SIN_CONFIRMAR = "[CONFIRMAR: ___]"
+
+
+def resolver_punto(punto, marcadores: bool) -> str:
+    """
+    Devuelve el texto de una viñeta.
+
+    Una viñeta es una cadena, o un diccionario con `base` (redacción
+    cualitativa) y `cuantificada` (plantilla con huecos `{clave}`). La versión
+    con cifras solo sale si TODAS sus métricas están confirmadas; si falta
+    alguna se publica la cualitativa, que siempre es cierta.
+    """
+    if isinstance(punto, str):
+        return punto
+
+    faltan = [c for c in punto["metricas"] if not METRICAS.get(c)]
+    if not faltan:
+        return punto["cuantificada"].format(**METRICAS)
+    if marcadores:
+        valores = {c: (METRICAS.get(c) or SIN_CONFIRMAR) for c in punto["metricas"]}
+        return punto["cuantificada"].format(**valores)
+    return punto["base"]
 
 # ---------------------------------------------------------------- contenido
 
@@ -58,39 +126,87 @@ ES = {
     # reconocía, y quien lo abría veía un descuido de idioma.
     "stack_etiqueta": "Tecnologías",
     "experiencia_titulo": "EXPERIENCIA PROFESIONAL",
+    # El puesto principal va solo y primero. Los otros tres fueron simultáneos a
+    # él, no consecutivos: leídos en una lista corrida, cuatro empleos que se
+    # solapan entre 2020 y 2022 parecen un error de fechas o una exageración, y
+    # es lo primero que un reclutador descarta sin preguntar.
     "experiencia": [
         {
             "puesto": "Jefe de Informática",
             "empresa": "PCVARELAVENEZUELA",
-            "fechas": "05/2011 - Presente",
+            "fechas": "05/2011 – Presente",
             "vinculo": "Tiempo completo",
             "puntos": [
-                "Lidero el departamento de TI y la infraestructura tecnológica completa.",
-                "Desarrollo sistemas internos con Python y Django que automatizan procesos antes manuales.",
-                "Administro la infraestructura Linux que sostiene la operación en producción.",
-                "Implanté despliegues contenerizados y reproducibles con Docker, en sustitución del despliegue manual.",
+                {
+                    "base": "Lidero el departamento de TI y la infraestructura tecnológica completa.",
+                    "cuantificada": "Lidero el departamento de TI y la infraestructura tecnológica"
+                                    " completa, coordinando un equipo de {personas_ti}.",
+                    "metricas": ["personas_ti"],
+                },
+                {
+                    "base": "Desarrollo sistemas internos con Python y Django que automatizan"
+                            " procesos antes manuales.",
+                    "cuantificada": "Desarrollo y mantengo {sistemas_produccion} sistemas internos"
+                                    " en producción con Python y Django, que automatizan procesos"
+                                    " antes manuales.",
+                    "metricas": ["sistemas_produccion"],
+                },
+                {
+                    "base": "Administro la infraestructura Linux que sostiene la operación en"
+                            " producción.",
+                    "cuantificada": "Administro la infraestructura Linux que sostiene la operación"
+                                    " en producción, con bases de datos PostgreSQL de {tamano_bd},"
+                                    " operada de forma ininterrumpida desde {anio_infra}.",
+                    "metricas": ["tamano_bd", "anio_infra"],
+                },
+                {
+                    "base": "Implanté despliegues contenerizados y reproducibles con Docker, en"
+                            " sustitución del despliegue manual.",
+                    "cuantificada": "Reduje el tiempo de despliegue de {despliegue_antes} a"
+                                    " {despliegue_despues} implantando despliegues contenerizados"
+                                    " y reproducibles con Docker, en sustitución del proceso manual.",
+                    "metricas": ["despliegue_antes", "despliegue_despues"],
+                },
             ],
             "stack": "Python, Django, PostgreSQL, Docker, Linux, Traefik, Nginx",
         },
+    ],
+    "experiencia_paralela_titulo": "Experiencia paralela / freelance",
+    "experiencia_paralela_nota": (
+        "Los tres compromisos siguientes se desarrollaron de forma simultánea al puesto de "
+        "Jefe de Informática, no como empleos consecutivos."
+    ),
+    "experiencia_paralela": [
         {
             "puesto": "Desarrollador Backend",
             "empresa": "Delzam",
-            "fechas": "06/2022 - 12/2023",
+            "fechas": "06/2022 – 12/2023",
             "vinculo": "Freelance, en paralelo a PCVARELAVENEZUELA",
             "puntos": [
                 "APIs REST con Django y Django REST Framework para un sistema de gestión empresarial.",
                 "Integración de servicios sobre esa API.",
-                "Optimización de consultas PostgreSQL en las rutas de mayor uso.",
+                {
+                    "base": "Optimización de consultas PostgreSQL en las rutas de mayor uso.",
+                    "cuantificada": "Optimización de consultas PostgreSQL en las rutas de mayor"
+                                    " uso: la más pesada bajó de {consulta_antes} a"
+                                    " {consulta_despues}.",
+                    "metricas": ["consulta_antes", "consulta_despues"],
+                },
             ],
             "stack": "Django, Django REST Framework, PostgreSQL, Docker, Vue.js",
         },
         {
             "puesto": "Desarrollador Backend",
             "empresa": "Zippyttech Tecnología e Innovación",
-            "fechas": "12/2019 - 12/2022",
+            "fechas": "12/2019 – 12/2022",
             "vinculo": "Consultoría, en paralelo a PCVARELAVENEZUELA",
             "puntos": [
-                "Arquitectura de microservicios en PHP con Laravel y Lumen.",
+                {
+                    "base": "Arquitectura de microservicios en PHP con Laravel y Lumen.",
+                    "cuantificada": "Arquitectura de {microservicios} microservicios en PHP con"
+                                    " Laravel y Lumen.",
+                    "metricas": ["microservicios"],
+                },
                 "Integración con APIs de terceros y comunicación en tiempo real con WebSockets.",
                 "Automatización de despliegues mediante CI/CD.",
                 "Seguridad con JWT y control de acceso granular.",
@@ -100,10 +216,15 @@ ES = {
         {
             "puesto": "Desarrollador Backend",
             "empresa": "Alcaldía del Municipio Guásimos",
-            "fechas": "02/2020 - 05/2022",
+            "fechas": "02/2020 – 05/2022",
             "vinculo": "Contrato, en paralelo a PCVARELAVENEZUELA",
             "puntos": [
-                "Plataforma de gestión municipal para trámites ciudadanos.",
+                {
+                    "base": "Plataforma de gestión municipal para trámites ciudadanos.",
+                    "cuantificada": "Plataforma de gestión municipal que digitalizó"
+                                    " {tramites} trámites ciudadanos.",
+                    "metricas": ["tramites"],
+                },
                 "Sistemas de información geográfica con PostGIS.",
                 "Administración de los servidores que dan servicio a la plataforma.",
                 "Integración con sistemas gubernamentales existentes.",
@@ -158,7 +279,7 @@ ES = {
         ("Desarrollador e-Business", "IUTAI", "2008 - 2009"),
     ],
     "certificaciones_titulo": "CERTIFICACIONES",
-    "certificaciones_intro": "21 certificaciones y más de 229 horas de formación continua entre 2023 y 2026, todas de Platzi. Las más relevantes para un puesto backend:",
+    "certificaciones_intro": "21 certificaciones y más de 229 horas de formación continua entre 2023 y 2026, todas de Platzi (plataforma líder de educación tech en Latinoamérica, más de 1 millón de estudiantes). Las más relevantes para un puesto backend:",
     "certificaciones": [
         "Fundamentos de Python - Platzi - 10/2025",
         "FastAPI - Platzi - 08/2025",
@@ -194,39 +315,86 @@ EN = {
     ),
     "stack_etiqueta": "Technologies",
     "experiencia_titulo": "PROFESSIONAL EXPERIENCE",
+    # Fechas en "Mon YYYY - Mon YYYY": fuera de Latinoamérica, "05/2011" se lee
+    # con frecuencia como día/mes, y una fecha ambigua en la primera línea de un
+    # puesto es exactamente donde un lector automático se equivoca.
     "experiencia": [
         {
             "puesto": "IT Manager",
             "empresa": "PCVARELAVENEZUELA",
-            "fechas": "05/2011 - Present",
+            "fechas": "May 2011 – Present",
             "vinculo": "Full-time",
             "puntos": [
-                "I lead the IT department and the full technology infrastructure.",
-                "I build internal systems in Python and Django that automate previously manual processes.",
-                "I administer the Linux infrastructure that keeps production running.",
-                "I introduced containerised, reproducible deployments with Docker, replacing the manual process.",
+                {
+                    "base": "I lead the IT department and the full technology infrastructure.",
+                    "cuantificada": "I lead the IT department and the full technology"
+                                    " infrastructure, coordinating a team of {personas_ti}.",
+                    "metricas": ["personas_ti"],
+                },
+                {
+                    "base": "I build internal systems in Python and Django that automate"
+                            " previously manual processes.",
+                    "cuantificada": "I build and maintain {sistemas_produccion} internal systems"
+                                    " in production with Python and Django, automating previously"
+                                    " manual processes.",
+                    "metricas": ["sistemas_produccion"],
+                },
+                {
+                    "base": "I administer the Linux infrastructure that keeps production running.",
+                    "cuantificada": "I administer the Linux infrastructure that keeps production"
+                                    " running, with PostgreSQL databases of {tamano_bd}, operated"
+                                    " without interruption since {anio_infra}.",
+                    "metricas": ["tamano_bd", "anio_infra"],
+                },
+                {
+                    "base": "I introduced containerised, reproducible deployments with Docker,"
+                            " replacing the manual process.",
+                    "cuantificada": "I cut deployment time from {despliegue_antes} to"
+                                    " {despliegue_despues} by introducing containerised,"
+                                    " reproducible deployments with Docker, replacing the manual"
+                                    " process.",
+                    "metricas": ["despliegue_antes", "despliegue_despues"],
+                },
             ],
             "stack": "Python, Django, PostgreSQL, Docker, Linux, Traefik, Nginx",
         },
+    ],
+    "experiencia_paralela_titulo": "Concurrent / Freelance Engagements",
+    "experiencia_paralela_nota": (
+        "The three engagements below ran concurrently with the IT Manager role, not as "
+        "consecutive positions."
+    ),
+    "experiencia_paralela": [
         {
             "puesto": "Backend Developer",
             "empresa": "Delzam",
-            "fechas": "06/2022 - 12/2023",
+            "fechas": "Jun 2022 – Dec 2023",
             "vinculo": "Freelance, alongside PCVARELAVENEZUELA",
             "puntos": [
                 "REST APIs with Django and Django REST Framework for a business management system.",
                 "Service integration on top of that API.",
-                "PostgreSQL query optimisation on the most heavily used endpoints.",
+                {
+                    "base": "PostgreSQL query optimisation on the most heavily used endpoints.",
+                    "cuantificada": "PostgreSQL query optimisation on the most heavily used"
+                                    " endpoints: the heaviest query went from {consulta_antes} to"
+                                    " {consulta_despues}.",
+                    "metricas": ["consulta_antes", "consulta_despues"],
+                },
             ],
             "stack": "Django, Django REST Framework, PostgreSQL, Docker, Vue.js",
         },
         {
             "puesto": "Backend Developer",
             "empresa": "Zippyttech Tecnología e Innovación",
-            "fechas": "12/2019 - 12/2022",
+            "fechas": "Dec 2019 – Dec 2022",
             "vinculo": "Consulting, alongside PCVARELAVENEZUELA",
             "puntos": [
-                "Microservice architecture in PHP with Laravel and Lumen.",
+                {
+                    "base": "Microservice architecture in PHP with Laravel and Lumen.",
+                    "cuantificada": "Architecture of {microservicios} microservices in PHP with"
+                                    " Laravel and Lumen.",
+                    "metricas": ["microservicios"],
+                },
                 "Third-party API integration and real-time communication over WebSockets.",
                 "Deployment automation through CI/CD.",
                 "JWT security and fine-grained access control.",
@@ -236,10 +404,15 @@ EN = {
         {
             "puesto": "Backend Developer",
             "empresa": "Guásimos Municipality (Local Government)",
-            "fechas": "02/2020 - 05/2022",
+            "fechas": "Feb 2020 – May 2022",
             "vinculo": "Contract, alongside PCVARELAVENEZUELA",
             "puntos": [
-                "Municipal platform for citizen administrative procedures.",
+                {
+                    "base": "Municipal platform for citizen administrative procedures.",
+                    "cuantificada": "Municipal platform that digitised {tramites} citizen"
+                                    " administrative procedures.",
+                    "metricas": ["tramites"],
+                },
                 "Geographic information systems with PostGIS.",
                 "Administration of the servers running the platform.",
                 "Integration with existing government systems.",
@@ -294,7 +467,7 @@ EN = {
         ("e-Business Developer", "IUTAI", "2008 - 2009"),
     ],
     "certificaciones_titulo": "CERTIFICATIONS",
-    "certificaciones_intro": "21 certifications and over 229 hours of continuous learning between 2023 and 2026, all from Platzi. Most relevant to a backend role:",
+    "certificaciones_intro": "21 certifications and over 229 hours of continuous learning between 2023 and 2026, all from Platzi (leading tech education platform in Latin America, over 1 million students). Most relevant to a backend role:",
     "certificaciones": [
         "Python Fundamentals - Platzi - 10/2025",
         "FastAPI - Platzi - 08/2025",
@@ -378,7 +551,19 @@ def vineta(texto):
     return parrafo(f"- {texto}", sangria=284)
 
 
-def construir_documento(d):
+def bloque_experiencia(d, e, marcadores):
+    """Un puesto: cabecera, fechas, viñetas y stack. Sin tablas ni columnas."""
+    p = [
+        parrafo(f'{e["puesto"]} - {e["empresa"]}', negrita=True, espacio_antes=120),
+        parrafo(f'{e["fechas"]} | {e["vinculo"]}'),
+    ]
+    for punto in e["puntos"]:
+        p.append(vineta(resolver_punto(punto, marcadores)))
+    p.append(parrafo(f'{d["stack_etiqueta"]}: {e["stack"]}'))
+    return p
+
+
+def construir_documento(d, marcadores: bool = False):
     p = []
     p.append(parrafo(d["nombre"], negrita=True, tam=32))
     p.append(parrafo(d["titular"], tam=24))
@@ -390,11 +575,15 @@ def construir_documento(d):
 
     p.append(encabezado(d["experiencia_titulo"]))
     for e in d["experiencia"]:
-        p.append(parrafo(f'{e["puesto"]} - {e["empresa"]}', negrita=True, espacio_antes=120))
-        p.append(parrafo(f'{e["fechas"]} | {e["vinculo"]}'))
-        for punto in e["puntos"]:
-            p.append(vineta(punto))
-        p.append(parrafo(f'{d["stack_etiqueta"]}: {e["stack"]}'))
+        p.extend(bloque_experiencia(d, e, marcadores))
+
+    # Subtítulo en negrita, no un encabezado de sección: un segundo título en
+    # mayúsculas aquí haría que un lector automático diera por cerrada la
+    # sección de experiencia y tratara lo de abajo como otra cosa.
+    p.append(parrafo(d["experiencia_paralela_titulo"], negrita=True, espacio_antes=180))
+    p.append(parrafo(d["experiencia_paralela_nota"]))
+    for e in d["experiencia_paralela"]:
+        p.extend(bloque_experiencia(d, e, marcadores))
 
     p.append(encabezado(d["habilidades_titulo"]))
     for categoria, valores in d["habilidades"]:
@@ -432,14 +621,14 @@ def construir_documento(d):
             f"<w:body>{cuerpo}{seccion}</w:body></w:document>")
 
 
-def escribir_docx(destino: pathlib.Path, d: dict) -> None:
+def escribir_docx(destino: pathlib.Path, d: dict, marcadores: bool = False) -> None:
     destino.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("[Content_Types].xml", CONTENT_TYPES)
         z.writestr("_rels/.rels", RELS)
         z.writestr("word/_rels/document.xml.rels", DOC_RELS)
         z.writestr("word/styles.xml", STYLES)
-        z.writestr("word/document.xml", construir_documento(d))
+        z.writestr("word/document.xml", construir_documento(d, marcadores))
 
 
 def convertir_a_pdf(docx: pathlib.Path) -> pathlib.Path | None:
@@ -459,11 +648,36 @@ def main() -> None:
     ap.add_argument("--en", action="store_true", help="generar la versión en inglés")
     ap.add_argument("--check", action="store_true",
                     help="comprobar que los documentos versionados están al día")
+    ap.add_argument("--marcadores", action="store_true",
+                    help="generar en .borradores/ una copia con [CONFIRMAR: ___] "
+                         "donde falta cada métrica; no toca los documentos publicados")
     args = ap.parse_args()
 
     datos = EN if args.en else ES
     sufijo = "-EN" if args.en else ""
-    docx = SALIDA / f"Jose-Hernan-Varela-Backend-Developer{sufijo}.docx"
+    nombre = f"Jose-Hernan-Varela-Backend-Developer{sufijo}"
+
+    if args.marcadores:
+        # A .borradores/ y nunca a src/: Nginx publica todo lo que hay en src/,
+        # así que un CV con "[CONFIRMAR: ___]" dentro sería descargable desde el
+        # sitio. Un borrador que se filtra hace más daño que la métrica que
+        # intenta añadir.
+        docx = BORRADORES / f"{nombre}-BORRADOR.docx"
+        pendientes = [c for c, v in METRICAS.items() if not v]
+        escribir_docx(docx, datos, marcadores=True)
+        print(f"  {docx.relative_to(RAIZ)}  ({docx.stat().st_size:,} bytes)")
+        pdf = convertir_a_pdf(docx)
+        if pdf and pdf.exists():
+            print(f"  {pdf.relative_to(RAIZ)}  ({pdf.stat().st_size:,} bytes)")
+        if pendientes:
+            print(f"\n  {len(pendientes)} métricas por confirmar en METRICAS "
+                  "(tools/generar-cv-ats.py):")
+            for clave in pendientes:
+                print(f"    · {clave}")
+            print("  Rellénalas ahí y vuelve a ejecutar sin --marcadores para publicar.")
+        return
+
+    docx = SALIDA / f"{nombre}.docx"
 
     if args.check:
         # Se compara word/document.xml y no el fichero entero: un ZIP guarda

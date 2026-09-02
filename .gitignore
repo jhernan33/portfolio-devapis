@@ -50,3 +50,7 @@ Thumbs.db
 tools/e2e/node_modules/
 tools/e2e/test-results/
 tools/e2e/playwright-report/
+
+# Borradores del CV con marcadores [CONFIRMAR]. NUNCA en src/: Nginx publica
+# todo lo que hay ahí y un CV a medias sería descargable desde el sitio.
+.borradores/
