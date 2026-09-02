@@ -6,7 +6,7 @@
 [![Nginx](https://img.shields.io/badge/Nginx-1.27-009639?logo=nginx&logoColor=white)](https://nginx.org/)
 [![License](https://img.shields.io/badge/License-All%20rights%20reserved-red)](LICENSE)
 
-Landing page profesional de CV/Portfolio para Senior Backend Developer. Sitio estático de una sola página con zero-dependencies, optimizado para rendimiento y accesibilidad.
+Landing page profesional de CV/Portfolio para Senior Backend / Full-Stack Developer. Sitio estático de una sola página con zero-dependencies, optimizado para rendimiento y accesibilidad.
 
 ## 🌐 Demo en Vivo
 

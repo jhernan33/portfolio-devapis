@@ -66,18 +66,18 @@ ES = {
     "salida": "og-cover.png",
     "eyebrow": "DEVAPIS.CLOUD/CV",
     "nombre": "José Hernán Varela",
-    "titular": "Senior Backend Developer",
+    "titular": "Senior Backend / Full-Stack Developer",
     "resumen": "15 años en TI · 5 construyendo APIs",
-    "chips": ["Python", "Django", "FastAPI", "PostgreSQL", "Docker"],
+    "chips": ["Python", "Django", "FastAPI", "Node.js", "React", "PostgreSQL", "Docker"],
 }
 
 EN = {
     "salida": "og-cover-en.png",
     "eyebrow": "DEVAPIS.CLOUD/CV/EN",
     "nombre": "José Hernán Varela",
-    "titular": "Senior Backend Developer",
+    "titular": "Senior Backend / Full-Stack Developer",
     "resumen": "15 years in IT · 5 building APIs",
-    "chips": ["Python", "Django", "FastAPI", "PostgreSQL", "Docker"],
+    "chips": ["Python", "Django", "FastAPI", "Node.js", "React", "PostgreSQL", "Docker"],
 }
 
 # ---------------------------------------------------------------- tipografía

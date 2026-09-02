@@ -24,8 +24,8 @@ formatos vienen del mismo origen y no pueden divergir.
     python3 tools/generar-cv-ats.py --marcadores   # borrador con [CONFIRMAR: ___]
 
 La experiencia se presenta en dos bloques: el puesto principal, y debajo los
-cinco compromisos que fueron SIMULTÁNEOS a él. Leídos en una lista corrida,
-seis empleos que se solapan desde 2019 parecen un error de fechas, y
+seis compromisos que fueron SIMULTÁNEOS a él. Leídos en una lista corrida,
+siete empleos que se solapan desde 2019 parecen un error de fechas, y
 es de las primeras cosas que un reclutador descarta sin preguntar.
 
 Todo dato factual sale de PERFIL-CANONICO.md. No inventar nada aquí, y las
@@ -90,7 +90,7 @@ METRICAS = {
         "anio_infra": "2024",
         "despliegue_propio": "18 s",
 
-        # --- Plataforma MLS inmobiliaria · contado sobre el repositorio el 2026-09-02 ---
+        # --- InmobiClub Business, backend · contado sobre el repositorio el 2026-09-02 ---
         # Todo sale de comandos que caben en 20 segundos frente a un entrevistador:
         # routers = archivos en src/routers; endpoints = llamadas router.<verbo>(
         # en esos archivos; modelos = líneas "model " en prisma/schema.prisma;
@@ -105,6 +105,18 @@ METRICAS = {
         "re_tests_seguridad": "18",
         "re_tests": "2.154",
         "re_suites": "163",
+
+        # --- InmobiClub Business, frontend · contado sobre el repositorio el 2026-09-02 ---
+        # líneas y archivos = find src -name '*.ts' -o -name '*.tsx' (+ wc -l);
+        # rutas = path= en src/router/AppRouter.tsx; diferidas = lazy( en el
+        # mismo archivo; módulos = directorios en src/features; archivos de test
+        # = *.test.ts(x) bajo src/.
+        "ic_lineas": "54.000",
+        "ic_archivos": "466",
+        "ic_rutas": "40",
+        "ic_rutas_diferidas": "35",
+        "ic_modulos": "cinco",
+        "ic_tests_archivos": "86",
     },
     "en": {
         "consultas_antes": "over 9,000 queries and 62 s",
@@ -119,6 +131,12 @@ METRICAS = {
         "re_tests_seguridad": "18",
         "re_tests": "2,154",
         "re_suites": "163",
+        "ic_lineas": "54,000",
+        "ic_archivos": "466",
+        "ic_rutas": "40",
+        "ic_rutas_diferidas": "35",
+        "ic_modulos": "five",
+        "ic_tests_archivos": "86",
     },
 }
 
@@ -149,18 +167,19 @@ def resolver_punto(punto, cifras: dict, marcadores: bool) -> str:
 ES = {
     "idioma": "es",
     "nombre": "José Hernán Varela",
-    "titular": "Senior Backend Developer",
+    "titular": "Senior Backend / Full-Stack Developer",
     "contacto": [
         "jhernan33@gmail.com | Táchira, Venezuela | UTC-4 | Disponible para trabajo totalmente remoto",
         "https://devapis.cloud/cv | https://github.com/jhernan33 | https://www.linkedin.com/in/jhernanvarela",
     ],
     "resumen_titulo": "PERFIL PROFESIONAL",
     "resumen": (
-        "Senior Backend Developer con 15 años en tecnologías de la información, "
-        "5 de ellos construyendo APIs con Python. Trabajo tanto el backend como la "
-        "infraestructura donde corre: servidores Linux, contenedores, proxy inverso "
-        "y bases de datos. Disponible para trabajo remoto con equipos de "
-        "Latinoamérica, Estados Unidos y Europa."
+        "Senior Backend / Full-Stack Developer con 15 años en tecnologías de la "
+        "información, 5 de ellos construyendo APIs con Python y Node.js. Trabajo tanto "
+        "el backend como la infraestructura donde corre: servidores Linux, contenedores, "
+        "proxy inverso y bases de datos; en mi producto propio, también el frontend en "
+        "React. Disponible para trabajo remoto con equipos de Latinoamérica, Estados "
+        "Unidos y Europa."
     ),
     # La etiqueta va aquí y no escrita a fuego en construir_documento():
     # estaba en español también en el documento inglés, en las siete líneas
@@ -168,8 +187,8 @@ ES = {
     # reconocía, y quien lo abría veía un descuido de idioma.
     "stack_etiqueta": "Tecnologías",
     "experiencia_titulo": "EXPERIENCIA PROFESIONAL",
-    # El puesto principal va solo y primero. Los otros cinco fueron simultáneos a
-    # él, no consecutivos: leídos en una lista corrida, seis empleos que se
+    # El puesto principal va solo y primero. Los otros seis fueron simultáneos a
+    # él, no consecutivos: leídos en una lista corrida, siete empleos que se
     # solapan desde 2019 parecen un error de fechas o una exageración, y
     # es lo primero que un reclutador descarta sin preguntar.
     "experiencia": [
@@ -196,13 +215,56 @@ ES = {
     ],
     "experiencia_paralela_titulo": "Experiencia paralela / freelance",
     "experiencia_paralela_nota": (
-        "Los cinco compromisos siguientes se desarrollaron de forma simultánea al puesto de "
-        "Jefe de Informática, no como empleos consecutivos."
+        "Simultáneos al puesto de Jefe de Informática, no consecutivos."
     ),
     "experiencia_paralela": [
         {
+            "puesto": "Desarrollador Frontend",
+            "empresa": "InmobiClub Business, MLS inmobiliario (producto propio en producción)",
+            "fechas": "03/2026 – Presente",
+            "vinculo": "Producto propio, en paralelo a PCVARELAVENEZUELA",
+            "puntos": [
+                {
+                    "base": "SPA en React 19, TypeScript estricto y Vite, con carga diferida por"
+                            " ruta, chunks de vendor separados y módulos de dominio"
+                            " autocontenidos.",
+                    "cuantificada": "SPA en React 19, TypeScript estricto y Vite de {ic_lineas}"
+                                    " líneas en {ic_archivos} módulos: {ic_rutas} rutas,"
+                                    " {ic_rutas_diferidas} de ellas con carga diferida y chunks de"
+                                    " vendor separados, y {ic_modulos} módulos de dominio"
+                                    " autocontenidos.",
+                    "metricas": ["ic_lineas", "ic_archivos", "ic_rutas", "ic_rutas_diferidas",
+                                 "ic_modulos"],
+                },
+                "Sesión sin tokens en localStorage: cookies httpOnly, refresco en single-flight"
+                " para evitar la revocación por carrera y renovación proactiva al recuperar el"
+                " foco.",
+                "Aislamiento multi-inquilino: perfiles (rol, empresa) con JWT reemitido por el"
+                " backend al conmutar, caché de servidor purgada por completo en el cambio y"
+                " claves de consulta con espacio de nombres por empresa.",
+                "Pagos con PayU (tarjeta, PSE, billeteras y efectivo, con fingerprinting"
+                " antifraude) y Stripe Checkout, con comprobantes en PDF generados en cliente;"
+                " tiempo real por Socket.io con invalidación selectiva de caché.",
+                "Capa pública embebible en sitios de clientes: política de framing por ruta en"
+                " Nginx con default fail-closed; imágenes comprimidas en cliente eliminando"
+                " metadatos EXIF/GPS.",
+                {
+                    "base": "Entrega end-to-end: Docker multi-stage con bases fijadas por digest,"
+                            " Nginx sin root con CSP por ruta, y CI en GitLab que bloquea el"
+                            " despliegue ante fallos de tipos o de la suite de tests (Vitest).",
+                    "cuantificada": "Entrega end-to-end: Docker multi-stage con bases fijadas por"
+                                    " digest, Nginx sin root con CSP por ruta, y CI en GitLab que"
+                                    " bloquea el despliegue ante fallos de tipos o de los"
+                                    " {ic_tests_archivos} archivos de test (Vitest).",
+                    "metricas": ["ic_tests_archivos"],
+                },
+            ],
+            "stack": "React 19, TypeScript, Vite, TanStack Query, React Router, Tailwind CSS,"
+                     " Zod, Axios, Socket.io, Leaflet, Vitest, Docker, Nginx, Traefik, GitLab CI",
+        },
+        {
             "puesto": "Desarrollador Backend",
-            "empresa": "Plataforma MLS inmobiliaria (producto propio en producción)",
+            "empresa": "InmobiClub Business, MLS inmobiliario (producto propio en producción)",
             "fechas": "08/2025 – Presente",
             "vinculo": "Producto propio, en paralelo a PCVARELAVENEZUELA",
             "puntos": [
@@ -220,12 +282,10 @@ ES = {
                 {
                     "base": "Autorización multi-inquilino con RBAC en base de datos y alcance por"
                             " empresa y agente derivado del JWT; las fugas entre inquilinos se"
-                            " cerraron como clase (listas blancas en la proyección, DTOs de"
-                            " salida y 404 genéricos) y las fijan tests de seguridad.",
+                            " cerraron como clase y las fijan tests de seguridad.",
                     "cuantificada": "Autorización multi-inquilino con RBAC en base de datos y alcance"
                                     " por empresa y agente derivado del JWT; las fugas entre"
-                                    " inquilinos se cerraron como clase (listas blancas en la"
-                                    " proyección, DTOs de salida y 404 genéricos) y las fijan"
+                                    " inquilinos se cerraron como clase y las fijan"
                                     " {re_tests_seguridad} tests de seguridad.",
                     "metricas": ["re_tests_seguridad"],
                 },
@@ -233,11 +293,9 @@ ES = {
                 " suscripciones recurrentes e idempotencia por cabecera en las operaciones"
                 " mutantes.",
                 "Caché Redis con ETag/304, TTL según la naturaleza del dato e invalidación"
-                " dirigida desde cada escritura; rate limiting en tres capas (Traefik por IP,"
-                " techo global y limitadores por ruta con Redis).",
+                " dirigida desde cada escritura; rate limiting en tres capas.",
                 "Ciclo de identidad completo: JWT con lista negra, revocación global de sesiones"
-                " al cambiar la contraseña, 2FA por OTP y Google Sign-In con verificación del ID"
-                " token contra JWKS.",
+                " al cambiar la contraseña, 2FA por OTP y Google Sign-In verificado contra JWKS.",
                 {
                     "base": "Suite de tests con Jest y Supertest, con tests guardrail que fallan"
                             " si reaparece un patrón arquitectónico ya eliminado.",
@@ -258,8 +316,7 @@ ES = {
             "puntos": [
                 "Prototipo de la API REST de un sistema de trazabilidad de muestras geológicas"
                 " mineras.",
-                "Modelado del ciclo de vida del testigo de sondaje, desde que sale del terreno"
-                " hasta su almacenamiento y análisis en laboratorio.",
+                "Modelado del ciclo de vida del testigo de sondaje, del terreno al laboratorio.",
                 "Despliegue en un VPS de Contabo con Docker y Traefik.",
             ],
             "stack": "PHP, Laravel, MySQL, Docker, Traefik",
@@ -317,15 +374,29 @@ ES = {
     ],
     "habilidades_titulo": "HABILIDADES TÉCNICAS",
     "habilidades": [
-        ("Lenguajes", "Python, JavaScript (Node.js, ES6+), PHP, SQL / PL-pgSQL"),
+        ("Lenguajes", "Python, JavaScript (Node.js, ES6+), TypeScript, PHP, SQL / PL-pgSQL"),
         ("Frameworks backend", "Django, Django REST Framework, FastAPI, Express 5, Prisma, Laravel, Lumen"),
-        ("Frontend", "Vue.js, HTML5, CSS3, JavaScript sin dependencias"),
+        ("Frontend", "React 19, TypeScript, TanStack Query, Tailwind CSS, Vue.js, HTML5, CSS3, JavaScript sin dependencias"),
         ("Bases de datos", "PostgreSQL, PostGIS, MySQL, Redis, SQL Server"),
         ("Infraestructura", "Docker, Docker Compose, Traefik, Nginx, Linux (Ubuntu, Debian, Fedora), Git, Shell scripting"),
         ("APIs y arquitectura", "REST, JWT, WebSockets, microservicios"),
     ],
     "proyectos_titulo": "PROYECTOS",
     "proyectos": [
+        {
+            "nombre": "InmobiClub Business, MLS inmobiliario multi-inquilino (producto propio en producción)",
+            "url": "https://mls.inmobiliaria.club",
+            "puntos": [
+                "Red de intercambio de inmuebles entre inmobiliarias: panel privado con RBAC,"
+                " mercado B2B bajo consentimiento y capa pública embebible en sitios de terceros.",
+                "Backend en Node.js 22, Express 5 y PostgreSQL con Prisma; frontend en React 19 y"
+                " TypeScript. Cifras y detalle en la experiencia.",
+                "Pagos con Stripe y PayU, tiempo real por Socket.io, caché Redis con invalidación"
+                " dirigida y despliegue Docker distroless tras Traefik.",
+            ],
+            "stack": "Node.js, Express 5, Prisma, PostgreSQL, Redis, React 19, TypeScript, Docker,"
+                     " Traefik",
+        },
         {
             "nombre": "Portafolio profesional y backend de analítica",
             "url": "https://github.com/jhernan33/portfolio-devapis",
@@ -351,25 +422,9 @@ ES = {
             ],
             "stack": "FastAPI, PostgreSQL, Docker, Traefik, Nginx",
         },
-        {
-            "nombre": "Sistema de gestión municipal",
-            "url": "",
-            "puntos": [
-                "API REST para la tramitación de solicitudes ciudadanas.",
-                "Información geográfica del municipio con PostGIS.",
-                "Panel administrativo con Vue.js.",
-            ],
-            "stack": "Django, PostgreSQL, PostGIS, Docker",
-        },
-        {
-            "nombre": "Migración de sistema legacy a microservicios",
-            "url": "",
-            "puntos": [
-                "Migración de un monolito a una arquitectura de microservicios.",
-                "Automatización de los despliegues mediante CI/CD.",
-            ],
-            "stack": "Laravel, Lumen, PostgreSQL",
-        },
+        # El sistema municipal y la migración a microservicios ya no van aquí:
+        # eran los mismos trabajos de la Alcaldía de Guásimos y de Zippyttech
+        # contados dos veces, y sacaban el documento a una cuarta página.
     ],
     "educacion_titulo": "EDUCACIÓN",
     "educacion": [
@@ -400,16 +455,17 @@ ES = {
 EN = {
     "idioma": "en",
     "nombre": "José Hernán Varela",
-    "titular": "Senior Backend Developer",
+    "titular": "Senior Backend / Full-Stack Developer",
     "contacto": [
         "jhernan33@gmail.com | Táchira, Venezuela | UTC-4 | Available for fully remote work",
         "https://devapis.cloud/cv/en/ | https://github.com/jhernan33 | https://www.linkedin.com/in/jhernanvarela",
     ],
     "resumen_titulo": "PROFESSIONAL SUMMARY",
     "resumen": (
-        "Senior Backend Developer with 15 years in IT, 5 of them building APIs with "
-        "Python. I work across both the backend and the infrastructure it runs on: "
-        "Linux servers, containers, reverse proxy and databases. Available for remote "
+        "Senior Backend / Full-Stack Developer with 15 years in IT, 5 of them building "
+        "APIs with Python and Node.js. I work across both the backend and the "
+        "infrastructure it runs on: Linux servers, containers, reverse proxy and "
+        "databases; on my own product, the React frontend as well. Available for remote "
         "work with teams in Latin America, the United States and Europe."
     ),
     "stack_etiqueta": "Technologies",
@@ -437,13 +493,53 @@ EN = {
     ],
     "experiencia_paralela_titulo": "Concurrent / Freelance Engagements",
     "experiencia_paralela_nota": (
-        "The five engagements below ran concurrently with the IT Manager role, not as "
-        "consecutive positions."
+        "Concurrent with the IT Manager role, not consecutive positions."
     ),
     "experiencia_paralela": [
         {
+            "puesto": "Frontend Developer",
+            "empresa": "InmobiClub Business, real estate MLS (own product in production)",
+            "fechas": "Mar 2026 – Present",
+            "vinculo": "Own product, alongside PCVARELAVENEZUELA",
+            "puntos": [
+                {
+                    "base": "SPA in React 19, strict TypeScript and Vite, with per-route lazy"
+                            " loading, separate vendor chunks and self-contained domain modules.",
+                    "cuantificada": "SPA in React 19, strict TypeScript and Vite: {ic_lineas} lines"
+                                    " across {ic_archivos} modules, {ic_rutas} routes,"
+                                    " {ic_rutas_diferidas} of them lazy-loaded with separate vendor"
+                                    " chunks, and {ic_modulos} self-contained domain modules.",
+                    "metricas": ["ic_lineas", "ic_archivos", "ic_rutas", "ic_rutas_diferidas",
+                                 "ic_modulos"],
+                },
+                "Session without tokens in localStorage: httpOnly cookies, single-flight refresh"
+                " to avoid revocation by race, and proactive renewal on regaining focus.",
+                "Multi-tenant isolation: (role, company) profiles with the JWT re-issued by the"
+                " backend on switch, server cache fully purged on the change and query keys"
+                " namespaced by company.",
+                "Payments with PayU (card, PSE, wallets and cash, with anti-fraud fingerprinting)"
+                " and Stripe Checkout, with receipts generated as PDF on the client; real time"
+                " over Socket.io with selective cache invalidation.",
+                "Public layer embeddable in client sites: per-route framing policy in Nginx with"
+                " a fail-closed default; images compressed on the client, stripping EXIF/GPS"
+                " metadata.",
+                {
+                    "base": "End-to-end delivery: multi-stage Docker with digest-pinned bases,"
+                            " non-root Nginx with per-route CSP, and GitLab CI that blocks the"
+                            " deploy on type errors or a failing test suite (Vitest).",
+                    "cuantificada": "End-to-end delivery: multi-stage Docker with digest-pinned"
+                                    " bases, non-root Nginx with per-route CSP, and GitLab CI that"
+                                    " blocks the deploy on type errors or a failure in the"
+                                    " {ic_tests_archivos} test files (Vitest).",
+                    "metricas": ["ic_tests_archivos"],
+                },
+            ],
+            "stack": "React 19, TypeScript, Vite, TanStack Query, React Router, Tailwind CSS,"
+                     " Zod, Axios, Socket.io, Leaflet, Vitest, Docker, Nginx, Traefik, GitLab CI",
+        },
+        {
             "puesto": "Backend Developer",
-            "empresa": "Real estate MLS platform (own product in production)",
+            "empresa": "InmobiClub Business, real estate MLS (own product in production)",
             "fechas": "Aug 2025 – Present",
             "vinculo": "Own product, alongside PCVARELAVENEZUELA",
             "puntos": [
@@ -461,23 +557,19 @@ EN = {
                 {
                     "base": "Multi-tenant authorisation with database-backed RBAC and company- and"
                             " agent-level scope derived from the JWT; cross-tenant leaks were"
-                            " closed as a class (whitelisted projections, output DTOs and generic"
-                            " 404s) and are pinned by security tests.",
+                            " closed as a class and are pinned by security tests.",
                     "cuantificada": "Multi-tenant authorisation with database-backed RBAC and"
                                     " company- and agent-level scope derived from the JWT;"
-                                    " cross-tenant leaks were closed as a class (whitelisted"
-                                    " projections, output DTOs and generic 404s) and are pinned by"
+                                    " cross-tenant leaks were closed as a class and are pinned by"
                                     " {re_tests_seguridad} security tests.",
                     "metricas": ["re_tests_seguridad"],
                 },
                 "Two payment gateways in parallel (Stripe and PayU) with raw-body webhooks,"
                 " recurring subscriptions and header-based idempotency on mutating operations.",
                 "Redis cache with ETag/304, TTL by data type and targeted invalidation on every"
-                " write; three-layer rate limiting (Traefik per IP, a global ceiling and"
-                " per-route limiters backed by Redis).",
+                " write; three-layer rate limiting.",
                 "Full identity lifecycle: JWT with blacklist, global session revocation on"
-                " password change, OTP-based 2FA and Google Sign-In with ID token verification"
-                " against JWKS.",
+                " password change, OTP-based 2FA and Google Sign-In verified against JWKS.",
                 {
                     "base": "Test suite with Jest and Supertest, including guardrail tests that"
                             " fail if an eliminated architectural pattern reappears.",
@@ -497,8 +589,7 @@ EN = {
             "vinculo": "Freelance, alongside PCVARELAVENEZUELA",
             "puntos": [
                 "Prototype of the REST API for a mining geological sample traceability system.",
-                "Modelled the life cycle of a drill core sample, from the field to storage and"
-                " laboratory analysis.",
+                "Modelled the life cycle of a drill core sample, from the field to the lab.",
                 "Deployment on a Contabo VPS with Docker and Traefik.",
             ],
             "stack": "PHP, Laravel, MySQL, Docker, Traefik",
@@ -556,15 +647,29 @@ EN = {
     ],
     "habilidades_titulo": "TECHNICAL SKILLS",
     "habilidades": [
-        ("Languages", "Python, JavaScript (Node.js, ES6+), PHP, SQL / PL-pgSQL"),
+        ("Languages", "Python, JavaScript (Node.js, ES6+), TypeScript, PHP, SQL / PL-pgSQL"),
         ("Backend frameworks", "Django, Django REST Framework, FastAPI, Express 5, Prisma, Laravel, Lumen"),
-        ("Frontend", "Vue.js, HTML5, CSS3, dependency-free JavaScript"),
+        ("Frontend", "React 19, TypeScript, TanStack Query, Tailwind CSS, Vue.js, HTML5, CSS3, dependency-free JavaScript"),
         ("Databases", "PostgreSQL, PostGIS, MySQL, Redis, SQL Server"),
         ("Infrastructure", "Docker, Docker Compose, Traefik, Nginx, Linux (Ubuntu, Debian, Fedora), Git, shell scripting"),
         ("APIs and architecture", "REST, JWT, WebSockets, microservices"),
     ],
     "proyectos_titulo": "PROJECTS",
     "proyectos": [
+        {
+            "nombre": "InmobiClub Business, multi-tenant real estate MLS (own product in production)",
+            "url": "https://mls.inmobiliaria.club",
+            "puntos": [
+                "Property exchange network between real estate agencies: private panel with RBAC,"
+                " consent-based B2B marketplace and a public layer embeddable in third-party sites.",
+                "Backend in Node.js 22, Express 5 and PostgreSQL with Prisma; frontend in React 19"
+                " and TypeScript. Figures and detail under experience.",
+                "Payments with Stripe and PayU, real time over Socket.io, Redis cache with targeted"
+                " invalidation and distroless Docker deployment behind Traefik.",
+            ],
+            "stack": "Node.js, Express 5, Prisma, PostgreSQL, Redis, React 19, TypeScript, Docker,"
+                     " Traefik",
+        },
         {
             "nombre": "Professional portfolio and analytics backend",
             "url": "https://github.com/jhernan33/portfolio-devapis",
@@ -590,25 +695,9 @@ EN = {
             ],
             "stack": "FastAPI, PostgreSQL, Docker, Traefik, Nginx",
         },
-        {
-            "nombre": "Municipal management system",
-            "url": "",
-            "puntos": [
-                "REST API handling citizen service requests.",
-                "Geographic data for the municipality with PostGIS.",
-                "Administrative dashboard built with Vue.js.",
-            ],
-            "stack": "Django, PostgreSQL, PostGIS, Docker",
-        },
-        {
-            "nombre": "Legacy system migration to microservices",
-            "url": "",
-            "puntos": [
-                "Migration from a monolith to a microservice architecture.",
-                "Deployment automation through CI/CD.",
-            ],
-            "stack": "Laravel, Lumen, PostgreSQL",
-        },
+        # El sistema municipal y la migración a microservicios ya no van aquí:
+        # eran los mismos trabajos de la Alcaldía de Guásimos y de Zippyttech
+        # contados dos veces, y sacaban el documento a una cuarta página.
     ],
     "educacion_titulo": "EDUCATION",
     "educacion": [

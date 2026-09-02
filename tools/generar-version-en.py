@@ -32,10 +32,10 @@ DESTINO = RAIZ / "src" / "en" / "index.html"
 # traducirse antes que "Experiencia", o quedaría "Experience Profesional".
 TRADUCCIONES = [
     # --- cabecera y metadatos ---
-    ("Senior Backend Developer. 15 años en TI, 5 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
-     "Senior Backend Developer. 15 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
-    ("15 años en TI, 5 construyendo APIs con Python (Django y FastAPI), PostgreSQL y Docker. Remoto para LATAM y Europa.",
-     "15 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe."),
+    ("Senior Backend / Full-Stack Developer. 15 años en TI, 5 construyendo APIs con Python (Django y FastAPI) y Node.js, PostgreSQL, React y Docker. Remoto para LATAM y Europa.",
+     "Senior Backend / Full-Stack Developer. 15 years in IT, 5 building APIs with Python (Django and FastAPI) and Node.js, PostgreSQL, React and Docker. Available for remote work across LATAM and Europe."),
+    ("15 años en TI, 5 construyendo APIs con Python (Django y FastAPI) y Node.js, PostgreSQL, React y Docker. Remoto para LATAM y Europa.",
+     "15 years in IT, 5 building APIs with Python (Django and FastAPI) and Node.js, PostgreSQL, React and Docker. Available for remote work across LATAM and Europe."),
     # --- navegación ---
     ("Saltar al contenido", "Skip to content"),
     # El único periodo abierto del CV. Estaba sin traducir y no se ve a simple
@@ -43,6 +43,7 @@ TRADUCCIONES = [
     # "Presente" en una página en inglés. Lo destapó la comprobación de abajo.
     (">2011 - Presente<", ">2011 - Present<"),
     (">08/2025 - Presente<", ">08/2025 - Present<"),
+    (">03/2026 - Presente<", ">03/2026 - Present<"),
     ('aria-label="Cerrar"', 'aria-label="Close"'),
     (">Experiencia<", ">Experience<"),
     (">Proyectos<", ">Projects<"),
@@ -69,8 +70,8 @@ TRADUCCIONES = [
     ("Disponible para trabajo remoto", "Open to remote work"),
     ("<strong>15 años en TI, 5 construyendo APIs.</strong>",
      "<strong>15 years in IT, 5 building APIs.</strong>"),
-    ("Especializado en <strong>Python (Django y FastAPI)</strong>, PostgreSQL\n\t\t\t\t\ty arquitecturas containerizadas. Remoto para LATAM y Europa.",
-     "Specialised in <strong>Python (Django and FastAPI)</strong>, PostgreSQL\n\t\t\t\t\tand containerised architectures. Available for remote work across LATAM and Europe."),
+    ("Especializado en <strong>Python (Django y FastAPI) y Node.js</strong>, PostgreSQL,\n\t\t\t\t\tReact y arquitecturas containerizadas. Remoto para LATAM y Europa.",
+     "Specialised in <strong>Python (Django and FastAPI) and Node.js</strong>, PostgreSQL,\n\t\t\t\t\tReact and containerised architectures. Available for remote work across LATAM and Europe."),
     ("Información de contacto", "Contact details"),
     # --- experiencia ---
     ("Experiencia Profesional", "Professional Experience"),
@@ -89,7 +90,20 @@ TRADUCCIONES = [
     ("Freelance · en paralelo a PCVARELAVENEZUELA", "Freelance · alongside PCVARELAVENEZUELA"),
     ("Consultoría · en paralelo a PCVARELAVENEZUELA", "Consulting · alongside PCVARELAVENEZUELA"),
     ("Contrato · en paralelo a PCVARELAVENEZUELA", "Contract · alongside PCVARELAVENEZUELA"),
-    ("Plataforma MLS inmobiliaria", "Real estate MLS platform"),
+    ("Desarrollador Frontend", "Frontend Developer"),
+    ("</a> · MLS inmobiliario</p>", "</a> · real estate MLS</p>"),
+    ("SPA en React 19 y TypeScript estricto de 54.000 líneas en 466 módulos, con 40 rutas, 35 de ellas con carga diferida, y cinco módulos de dominio autocontenidos",
+     "SPA in React 19 and strict TypeScript, 54,000 lines across 466 modules, with 40 routes, 35 of them lazy-loaded, and five self-contained domain modules"),
+    ("Sesión con cookies httpOnly en lugar de tokens en localStorage: refresco de token en single-flight para evitar la revocación por carrera y renovación proactiva al recuperar el foco",
+     "Session on httpOnly cookies instead of tokens in localStorage: single-flight token refresh to avoid revocation by race and proactive renewal on regaining focus"),
+    ("Aislamiento multi-inquilino: JWT reemitido al cambiar de perfil, caché de servidor purgada por completo y claves de consulta con espacio de nombres por empresa",
+     "Multi-tenant isolation: JWT re-issued on profile switch, server cache fully purged and query keys namespaced by company"),
+    ("Pagos con PayU (antifraude por device fingerprinting) y Stripe Checkout, con comprobantes en PDF generados en cliente; tiempo real por Socket.io con invalidación selectiva de caché",
+     "Payments with PayU (anti-fraud device fingerprinting) and Stripe Checkout, with receipts generated as PDF on the client; real time over Socket.io with selective cache invalidation"),
+    ("Capa pública embebible en sitios de clientes con política de framing por ruta en Nginx (fail-closed); imágenes comprimidas en cliente eliminando metadatos EXIF/GPS",
+     "Public layer embeddable in client sites with per-route framing policy in Nginx (fail-closed); images compressed on the client, stripping EXIF/GPS metadata"),
+    ("Entrega completa: Docker multi-stage con bases fijadas por digest, Nginx sin root con CSP, y CI en GitLab que bloquea el despliegue si fallan los tipos o los 86 archivos de test",
+     "End-to-end delivery: multi-stage Docker with digest-pinned bases, non-root Nginx with CSP, and GitLab CI that blocks the deploy if types or the 86 test files fail"),
     ("Producto propio en producción · en paralelo a PCVARELAVENEZUELA",
      "Own product in production · alongside PCVARELAVENEZUELA"),
     ("API REST multi-inquilino en Node.js 22, Express 5 y PostgreSQL con Prisma: 353 endpoints en 57 routers sobre 53 modelos de datos",
@@ -139,6 +153,16 @@ TRADUCCIONES = [
     # --- proyectos ---
     ("Proyectos Destacados", "Selected Projects"),
     ("Soluciones de impacto real", "Work with real-world impact"),
+    ("InmobiClub Business · MLS inmobiliario multi-inquilino",
+     "InmobiClub Business · multi-tenant real estate MLS"),
+    ("Red de intercambio de inmuebles entre inmobiliarias: panel privado con RBAC, mercado B2B bajo consentimiento y capa pública embebible en sitios de terceros",
+     "Property exchange network between real estate agencies: private panel with RBAC, consent-based B2B marketplace and a public layer embeddable in third-party sites"),
+    ("API REST de 353 endpoints en Express 5 y Prisma con 2.154 tests; SPA en React 19 y TypeScript de 54.000 líneas",
+     "REST API of 353 endpoints in Express 5 and Prisma with 2,154 tests; SPA in React 19 and TypeScript, 54,000 lines"),
+    ("Pagos con Stripe y PayU, tiempo real por Socket.io, caché Redis con invalidación dirigida y despliegue Docker distroless tras Traefik",
+     "Payments with Stripe and PayU, real time over Socket.io, Redis cache with targeted invalidation and distroless Docker deployment behind Traefik"),
+    ("Producto en producción: mls.inmobiliaria.club",
+     "Live product: mls.inmobiliaria.club"),
     ("Sistema de Gestión Municipal", "Municipal Management System"),
     ("API REST para la tramitación de solicitudes ciudadanas",
      "REST API handling citizen service requests"),
@@ -290,10 +314,10 @@ def generar(html: str) -> str:
     # sin traducir y la página inglesa se publicaba con el alt en español, sin
     # que nada lo dijera. Pasó al corregir los años de experiencia. Ahora se
     # comprueba que la frase de origen exista antes de sustituirla.
-    alt_es = ('content="José Hernán Varela, Senior Backend Developer. 15 años en TI, '
-              '5 construyendo APIs. Python, Django, FastAPI, PostgreSQL y Docker."')
-    alt_en = ('content="José Hernán Varela, Senior Backend Developer. 15 years in IT, '
-              '5 building APIs. Python, Django, FastAPI, PostgreSQL and Docker."')
+    alt_es = ('content="José Hernán Varela, Senior Backend / Full-Stack Developer. 15 años en TI, '
+              '5 construyendo APIs. Python, Django, FastAPI, Node.js, React, PostgreSQL y Docker."')
+    alt_en = ('content="José Hernán Varela, Senior Backend / Full-Stack Developer. 15 years in IT, '
+              '5 building APIs. Python, Django, FastAPI, Node.js, React, PostgreSQL and Docker."')
     if alt_es not in html:
         sys.exit("El texto alternativo de la portada Open Graph cambió en "
                  "src/index.html y ya no coincide con el de este script.\n"
@@ -342,7 +366,8 @@ VOCABULARIO_INVARIANTE = {
     "josé", "hernán", "varela", "táchira", "venezuela", "delzam", "iufront",
     "iutai", "platzi", "zippyttech", "tecnología", "innovación", "github",
     "linkedin", "pcvarelavenezuela", "jv", "gsamples", "global", "chile",
-    "prisma", "stripe", "mls", "node",
+    "prisma", "stripe", "mls", "node", "inmobiclub", "business", "react", "full",
+    "typescript", "vite", "tanstack", "query", "tailwind", "css", "vitest",
     # cargo y secciones que ya están en inglés en el original
     "senior", "backend", "developer", "stack", "frameworks", "devops",
     "terminal", "prompt", "engineering", "ai", "tools", "code", "claude",

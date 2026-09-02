@@ -6,11 +6,11 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta name="description" content="Senior Backend Developer. 15 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe.">
+	<meta name="description" content="Senior Backend / Full-Stack Developer. 15 years in IT, 5 building APIs with Python (Django and FastAPI) and Node.js, PostgreSQL, React and Docker. Available for remote work across LATAM and Europe.">
 	<meta name="author" content="José Hernán Varela">
 	<meta name="theme-color" content="#0f172a">
-	<meta property="og:title" content="José Hernán Varela - Senior Backend Developer">
-	<meta property="og:description" content="15 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe.">
+	<meta property="og:title" content="José Hernán Varela - Senior Backend / Full-Stack Developer">
+	<meta property="og:description" content="15 years in IT, 5 building APIs with Python (Django and FastAPI) and Node.js, PostgreSQL, React and Docker. Available for remote work across LATAM and Europe.">
 	<meta property="og:type" content="profile">
 	<meta property="og:url" content="https://devapis.cloud/cv/en/">
 	<meta property="og:locale" content="en">
@@ -23,12 +23,12 @@
 	<meta property="og:image:type" content="image/png">
 	<meta property="og:image:width" content="1200">
 	<meta property="og:image:height" content="630">
-	<meta property="og:image:alt" content="José Hernán Varela, Senior Backend Developer. 15 years in IT, 5 building APIs. Python, Django, FastAPI, PostgreSQL and Docker.">
+	<meta property="og:image:alt" content="José Hernán Varela, Senior Backend / Full-Stack Developer. 15 years in IT, 5 building APIs. Python, Django, FastAPI, Node.js, React, PostgreSQL and Docker.">
 	<meta name="twitter:card" content="summary_large_image">
-	<meta name="twitter:title" content="José Hernán Varela - Senior Backend Developer">
-	<meta name="twitter:description" content="15 years in IT, 5 building APIs with Python (Django and FastAPI), PostgreSQL and Docker. Available for remote work across LATAM and Europe.">
+	<meta name="twitter:title" content="José Hernán Varela - Senior Backend / Full-Stack Developer">
+	<meta name="twitter:description" content="15 years in IT, 5 building APIs with Python (Django and FastAPI) and Node.js, PostgreSQL, React and Docker. Available for remote work across LATAM and Europe.">
 	<meta name="twitter:image" content="https://devapis.cloud/cv/assets/images/og-cover-en.png">
-	<meta name="twitter:image:alt" content="José Hernán Varela, Senior Backend Developer. 15 years in IT, 5 building APIs. Python, Django, FastAPI, PostgreSQL and Docker.">
+	<meta name="twitter:image:alt" content="José Hernán Varela, Senior Backend / Full-Stack Developer. 15 years in IT, 5 building APIs. Python, Django, FastAPI, Node.js, React, PostgreSQL and Docker.">
 	<link rel="canonical" href="https://devapis.cloud/cv/en/">
 	<link rel="alternate" hreflang="es" href="https://devapis.cloud/cv">
 	<link rel="alternate" hreflang="en" href="https://devapis.cloud/cv/en/">
@@ -39,7 +39,7 @@
 	     en claro y saltaba a oscuro. -->
 	<script src="/cv/theme-init.js"></script>
 	<link rel="stylesheet" href="/cv/styles.css">
-	<title>José Hernán Varela - Senior Backend Developer</title>
+	<title>José Hernán Varela - Senior Backend / Full-Stack Developer</title>
 
 	<!-- Datos estructurados. Sin teléfono a propósito: este fichero es público
 	     en GitHub y un número indexado atrae spam automatizado. -->
@@ -51,7 +51,7 @@
 		"mainEntity": {
 			"@type": "Person",
 			"name": "José Hernán Varela",
-			"jobTitle": "Senior Backend Developer",
+			"jobTitle": "Senior Backend / Full-Stack Developer",
 			"url": "https://devapis.cloud/cv/en/",
 			"email": "jhernan33@gmail.com",
 			"address": {
@@ -152,11 +152,11 @@
 			<div class="hero__content">
 				<div class="hero__badge">Open to remote work</div>
 				<h1 class="hero__name">José Hernán Varela</h1>
-				<p class="hero__role">Senior Backend Developer</p>
+				<p class="hero__role">Senior Backend / Full-Stack Developer</p>
 				<p class="hero__summary">
 					<strong>15 years in IT, 5 building APIs.</strong>
-					Specialised in <strong>Python (Django and FastAPI)</strong>, PostgreSQL
-					and containerised architectures. Available for remote work across LATAM and Europe.
+					Specialised in <strong>Python (Django and FastAPI) and Node.js</strong>, PostgreSQL,
+					React and containerised architectures. Available for remote work across LATAM and Europe.
 				</p>
 				<div class="hero__tags">
 					<span class="tag">Python</span>
@@ -164,6 +164,8 @@
 					<span class="tag">FastAPI</span>
 					<span class="tag">PostgreSQL</span>
 					<span class="tag">Docker</span>
+					<span class="tag">Node.js</span>
+					<span class="tag">React</span>
 				</div>
 			</div>
 			<aside class="hero__contact">
@@ -243,8 +245,40 @@
 					<div class="timeline__content">
 						<header class="timeline__header">
 							<div>
+								<h3 class="timeline__role">Frontend Developer</h3>
+								<p class="timeline__company"><a href="https://mls.inmobiliaria.club" target="_blank" rel="noopener">InmobiClub Business</a> · real estate MLS</p>
+								<p class="timeline__engagement">Own product in production · alongside PCVARELAVENEZUELA</p>
+							</div>
+							<time class="timeline__period">03/2026 - Present</time>
+						</header>
+						<ul class="timeline__achievements">
+							<li>SPA in React 19 and strict TypeScript, 54,000 lines across 466 modules, with 40 routes, 35 of them lazy-loaded, and five self-contained domain modules</li>
+							<li>Session on httpOnly cookies instead of tokens in localStorage: single-flight token refresh to avoid revocation by race and proactive renewal on regaining focus</li>
+							<li>Multi-tenant isolation: JWT re-issued on profile switch, server cache fully purged and query keys namespaced by company</li>
+							<li>Payments with PayU (anti-fraud device fingerprinting) and Stripe Checkout, with receipts generated as PDF on the client; real time over Socket.io with selective cache invalidation</li>
+							<li>Public layer embeddable in client sites with per-route framing policy in Nginx (fail-closed); images compressed on the client, stripping EXIF/GPS metadata</li>
+							<li>End-to-end delivery: multi-stage Docker with digest-pinned bases, non-root Nginx with CSP, and GitLab CI that blocks the deploy if types or the 86 test files fail</li>
+						</ul>
+						<div class="timeline__stack">
+							<span class="chip">React 19</span>
+							<span class="chip">TypeScript</span>
+							<span class="chip">Vite</span>
+							<span class="chip">TanStack Query</span>
+							<span class="chip">Tailwind CSS</span>
+							<span class="chip">Vitest</span>
+							<span class="chip">Docker</span>
+							<span class="chip">Traefik</span>
+						</div>
+					</div>
+				</article>
+
+				<article class="timeline__item">
+					<div class="timeline__marker"></div>
+					<div class="timeline__content">
+						<header class="timeline__header">
+							<div>
 								<h3 class="timeline__role">Backend Developer</h3>
-								<p class="timeline__company">Real estate MLS platform</p>
+								<p class="timeline__company"><a href="https://mls.inmobiliaria.club" target="_blank" rel="noopener">InmobiClub Business</a> · real estate MLS</p>
 								<p class="timeline__engagement">Own product in production · alongside PCVARELAVENEZUELA</p>
 							</div>
 							<time class="timeline__period">08/2025 - Present</time>
@@ -395,7 +429,7 @@
 					<h3 class="stack-card__title">Languages</h3>
 					<ul class="stack-card__list">
 						<li>Python</li>
-						<li>JavaScript (ES6+)</li>
+						<li>JavaScript (ES6+) / TypeScript</li>
 						<li>PHP</li>
 						<li>SQL / PL/pgSQL</li>
 					</ul>
@@ -414,7 +448,8 @@
 						<li>Django / Django REST Framework</li>
 						<li>FastAPI</li>
 						<li>Laravel / Lumen</li>
-						<li>Express 5 / Prisma / Vue.js</li>
+						<li>Express 5 / Prisma</li>
+						<li>React 19 / Vue.js</li>
 					</ul>
 				</article>
 
@@ -477,6 +512,25 @@
 				<p class="section__subtitle">Work with real-world impact</p>
 			</header>
 			<div class="projects-grid">
+				<article class="project-card">
+					<header class="project-card__header">
+						<h3 class="project-card__title">InmobiClub Business · multi-tenant real estate MLS</h3>
+						<div class="project-card__tags">
+							<span class="chip chip--small">Node.js</span>
+							<span class="chip chip--small">React 19</span>
+							<span class="chip chip--small">PostgreSQL</span>
+							<span class="chip chip--small">Redis</span>
+							<span class="chip chip--small">Docker</span>
+						</div>
+					</header>
+					<ul class="project-card__features">
+						<li>Property exchange network between real estate agencies: private panel with RBAC, consent-based B2B marketplace and a public layer embeddable in third-party sites</li>
+						<li>REST API of 353 endpoints in Express 5 and Prisma with 2,154 tests; SPA in React 19 and TypeScript, 54,000 lines</li>
+						<li>Payments with Stripe and PayU, real time over Socket.io, Redis cache with targeted invalidation and distroless Docker deployment behind Traefik</li>
+						<li><a href="https://mls.inmobiliaria.club" target="_blank" rel="noopener">Live product: mls.inmobiliaria.club</a></li>
+					</ul>
+				</article>
+
 				<article class="project-card">
 					<header class="project-card__header">
 						<h3 class="project-card__title">Municipal Management System</h3>

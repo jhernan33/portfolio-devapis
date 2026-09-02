@@ -631,7 +631,7 @@ jobs:
           [ "$codigo" = 404 ] || { echo "::error::Una ruta inexistente devolvió $codigo en lugar de 404"; fallos=1; }
           curl -s http://localhost:8080/no-existe | grep -q '404' \
             || { echo "::error::La página 404 no se está sirviendo"; fallos=1; }
-          curl -s http://localhost:8080/no-existe | grep -qi 'Senior Backend Developer' \
+          curl -s http://localhost:8080/no-existe | grep -qi 'Senior Backend / Full-Stack Developer' \
             && { echo "::error::La ruta inexistente devuelve el CV entero"; fallos=1; }
           [ "$(docker exec landpage-ci id -u)" != "0" ] || { echo "::error::Nginx corre como root"; fallos=1; }
           # emerg/crit/alert y no error: un 403 por la regla de .git también se
