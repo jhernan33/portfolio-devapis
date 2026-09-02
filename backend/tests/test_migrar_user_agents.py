@@ -128,10 +128,10 @@ def test_el_resultado_coincide_con_lo_que_guardaria_el_servicio():
     La migración y el servicio tienen que derivar lo mismo de la misma cadena;
     si no, las filas antiguas y las nuevas contarían distinto.
     """
-    import main
+    from app.useragent import parse_user_agent
 
     for agente in (ANDROID, IPHONE, OPERA, WINDOWS):
-        esperado = main.parse_user_agent(agente)
+        esperado = parse_user_agent(agente)
         filas = [fila(1, agente, "x", "x", "x")]
         _, navegador, sistema, dispositivo = migracion.recalcular(filas)[0]
         assert (navegador, sistema, dispositivo) == (

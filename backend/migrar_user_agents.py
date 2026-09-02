@@ -49,7 +49,8 @@ from collections import Counter
 
 import asyncpg
 
-from main import get_settings, parse_user_agent
+from app.config import load_settings
+from app.useragent import parse_user_agent
 
 
 # Solo estas tres columnas se derivan del User-Agent.
@@ -102,13 +103,13 @@ def resumir(filas, correcciones):
 
 
 async def ejecutar(aplicar: bool) -> int:
-    ajustes = get_settings()
+    ajustes = load_settings()
     conexion = await asyncpg.connect(
-        user=ajustes["db_user"],
-        password=ajustes["db_password"],
-        database=ajustes["db_name"],
-        host=ajustes["db_host"],
-        port=ajustes["db_port"],
+        user=ajustes.db_user,
+        password=ajustes.db_password,
+        database=ajustes.db_name,
+        host=ajustes.db_host,
+        port=ajustes.db_port,
     )
 
     try:

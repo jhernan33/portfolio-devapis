@@ -68,6 +68,10 @@ landPage/
 │   ├── main.js                  # Vanilla JS modules (~300 lines)
 │   └── assets/
 │       └── images/              # Certificate images (17 files)
+├── backend/                      # Analytics API (FastAPI + asyncpg)
+│   ├── main.py                  # Entrypoint: app = create_app()
+│   ├── app/                     # Package: config, security, privacy, db, repositories, routes, static
+│   └── tests/                   # pytest, no PostgreSQL needed
 ├── Dockerfile                    # Container definition
 ├── docker-compose.yaml           # Docker Compose orchestration
 ├── nginx.conf                    # Nginx configuration
@@ -100,7 +104,7 @@ npx serve src/
 ```bash
 # Build y ejecutar
 docker build -t landpage .
-docker run -p 8080:80 landpage
+docker run -p 8080:8080 landpage
 
 # Acceder en http://localhost:8080
 ```
@@ -152,7 +156,7 @@ docker ps
 └──────┬───────────────────────┘
        │ (HTTP interno)
 ┌──────▼───────────────────────┐
-│  Nginx Container (port 80)   │
+│  Nginx Container (port 8080) │
 │  - SPA Routing               │
 │  - Security Headers          │
 │  - Gzip Compression          │
@@ -274,7 +278,7 @@ fallo que este repositorio ya tuvo.**
 | Sin `<script>` inline | La CSP los bloquea; el fallo solo se ve en producción |
 | Rutas de analytics con `Depends(require_analytics_auth)` | El dashboard estuvo protegido solo por el proxy |
 | `ip_address` ni se crea ni se escribe | Las IPs no vuelven a almacenarse en claro |
-| DDL sincronizado entre `main.py` y el SQL | El esquema vive en dos sitios |
+| DDL sincronizado entre `backend/app/db.py` y el SQL | El esquema vive en dos sitios |
 | Prioridades de Traefik por encima de 73 | Por debajo, el tracking cae en el panel de Traefik y devuelve 401 |
 | El compose falla si falta un secreto | Un `DB_HOST` por defecto dejó el servicio meses reiniciándose |
 | Versión en inglés y documentos ATS al día | Se generan desde `src/index.html`; si no, divergen en silencio |
@@ -355,7 +359,7 @@ curl -X POST https://devapis.cloud/api/track
 curl -u "$ANALYTICS_USER:$ANALYTICS_PASSWORD" https://devapis.cloud/api/analytics
 ```
 
-La autenticación se implementa en la aplicación (`backend/main.py`), no en el
+La autenticación se implementa en la aplicación (`backend/app/security.py`), no en el
 reverse proxy: así la protección viaja con el repositorio y no se pierde al
 recrear los contenedores.
 

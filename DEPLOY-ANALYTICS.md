@@ -381,7 +381,7 @@ Estado actual de la protección:
 | `GET /api/analytics/recent` | 🔒 HTTP Basic |
 | `GET /analytics` | 🔒 HTTP Basic |
 
-La autenticación está implementada en `backend/main.py` con `secrets.compare_digest`
+La autenticación está implementada en `backend/app/security.py` con `secrets.compare_digest`
 (comparación en tiempo constante), **no** en el reverse proxy. Esto es
 deliberado: la protección forma parte del código versionado y no se pierde al
 recrear los contenedores ni al reconstruir Traefik.

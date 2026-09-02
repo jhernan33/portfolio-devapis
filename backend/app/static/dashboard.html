@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>CV Analytics Dashboard</title>
+    <!-- Rutas absolutas: el panel se sirve en /analytics (sin barra final),
+         así que una ruta relativa resolvería contra la raíz del dominio.
+         Ambos ficheros exigen las mismas credenciales que el panel. -->
+    <link rel="stylesheet" href="/analytics/dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📊 CV Analytics Dashboard</h1>
+        <p class="privacy-note">
+            Las IPs no se almacenan. Se muestran redes de origen truncadas
+            (/24 en IPv4, /48 en IPv6); los visitantes únicos se cuentan
+            mediante un hash con sal.
+        </p>
+
+        <button class="refresh-btn" id="refresh">🔄 Actualizar</button>
+
+        <div class="stats-grid" id="stats-grid"></div>
+
+        <div class="section">
+            <h2>Top Navegadores</h2>
+            <table id="browsers-table"></table>
+        </div>
+
+        <div class="section">
+            <h2>Redes de Origen</h2>
+            <table id="networks-table"></table>
+        </div>
+
+        <div class="section">
+            <h2>Dispositivos</h2>
+            <table id="devices-table"></table>
+        </div>
+
+        <div class="section">
+            <h2>Visitas Recientes</h2>
+            <p class="nota">Incluye el tráfico interno, que las estadísticas de arriba no cuentan.</p>
+            <table id="recent-table"></table>
+        </div>
+    </div>
+
+    <!-- Sin JavaScript inline: la CSP del panel es script-src 'self'. -->
+    <script src="/analytics/dashboard.js"></script>
+</body>
+</html>

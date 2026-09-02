@@ -8,7 +8,7 @@ se mira. Estos tests fijan ese orden.
 """
 import pytest
 
-import main
+from app.useragent import parse_user_agent
 
 
 # Cadenas reales, no inventadas: son las que sirven de referencia.
@@ -55,19 +55,19 @@ LINUX_ESCRITORIO = (
     ("", "Unknown"),
 ])
 def test_navegador(ua, esperado):
-    assert main.parse_user_agent(ua)["browser"] == esperado
+    assert parse_user_agent(ua)["browser"] == esperado
 
 
 def test_edge_no_se_confunde_con_chrome():
     """Edge se identifica como Chrome además de como Edg: gana el más específico."""
     assert "chrome" in EDGE.lower()
-    assert main.parse_user_agent(EDGE)["browser"] == "Edge"
+    assert parse_user_agent(EDGE)["browser"] == "Edge"
 
 
 def test_opera_no_se_confunde_con_chrome():
     """Mismo caso que Edge: Opera lleva `Chrome/` en la cadena."""
     assert "chrome" in OPERA.lower()
-    assert main.parse_user_agent(OPERA)["browser"] == "Opera"
+    assert parse_user_agent(OPERA)["browser"] == "Opera"
 
 
 # ============================================================
@@ -85,7 +85,7 @@ def test_opera_no_se_confunde_con_chrome():
     ("curl/8.4.0", "Unknown"),
 ])
 def test_sistema_operativo(ua, esperado):
-    assert main.parse_user_agent(ua)["os"] == esperado
+    assert parse_user_agent(ua)["os"] == esperado
 
 
 def test_android_no_se_confunde_con_linux():
@@ -94,7 +94,7 @@ def test_android_no_se_confunde_con_linux():
     ningún móvil Android se cuenta jamás como Android.
     """
     assert "linux" in ANDROID.lower()
-    assert main.parse_user_agent(ANDROID)["os"] == "Android"
+    assert parse_user_agent(ANDROID)["os"] == "Android"
 
 
 def test_ios_no_se_confunde_con_macos():
@@ -103,7 +103,7 @@ def test_ios_no_se_confunde_con_macos():
     el tráfico de iOS se contabiliza como escritorio macOS.
     """
     assert "mac" in IPHONE.lower()
-    assert main.parse_user_agent(IPHONE)["os"] == "iOS"
+    assert parse_user_agent(IPHONE)["os"] == "iOS"
 
 
 # ============================================================
@@ -119,7 +119,7 @@ def test_ios_no_se_confunde_con_macos():
     (IPAD, "Mobile"),
 ])
 def test_tipo_de_dispositivo(ua, esperado):
-    assert main.parse_user_agent(ua)["device_type"] == esperado
+    assert parse_user_agent(ua)["device_type"] == esperado
 
 
 # ============================================================
@@ -128,6 +128,6 @@ def test_tipo_de_dispositivo(ua, esperado):
 
 @pytest.mark.parametrize("ua", ["", "   ", "?", "x" * 5000, "<script>alert(1)</script>"])
 def test_no_revienta_con_entradas_raras(ua):
-    resultado = main.parse_user_agent(ua)
+    resultado = parse_user_agent(ua)
     assert set(resultado) == {"browser", "os", "device_type"}
     assert all(isinstance(v, str) for v in resultado.values())

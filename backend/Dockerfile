@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # tenerla dentro evita el `docker cp` a mano justo cuando hay que tocar datos
 # de producción. No se ejecuta sola: es un script, no parte del arranque.
 COPY main.py migrar_user_agents.py ./
+COPY app/ ./app/
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \

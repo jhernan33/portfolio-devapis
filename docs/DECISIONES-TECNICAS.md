@@ -37,7 +37,7 @@ está leyendo mi CV.
 derivados:
 
 ```python
-# backend/main.py
+# backend/app/privacy.py
 ip = ipaddress.ip_address(raw_ip)            # valida que sea una IP real
 network = 24 if ip.version == 4 else 48
 prefix  = ip_network(f"{ip}/{network}").network_address   # 203.0.113.45 → 203.0.113.0
@@ -249,7 +249,41 @@ Los fallos que no producen error son los que sobreviven años, y la única
 herramienta que los encuentra barato es la que ejerce el código con casos
 concretos.
 
-## 6. Próximos pasos
+## 6. Refactorización del backend (septiembre 2026)
+
+`backend/main.py` era un solo fichero de 943 líneas con cinco responsabilidades
+y el panel embebido como una cadena. Se convirtió en el paquete `backend/app/`
+con un módulo por responsabilidad (ver la tabla de abajo) sin cambiar el
+comportamiento observable: los tests de contrato se conservaron y solo
+cambiaron sus imports.
+
+Lo que cambió por dentro y por qué:
+
+- **Sin estado global.** `SETTINGS` y `DB_POOL` eran variables de módulo que
+  obligaban a los tests a parchear y hacían que `anonymize_ip` dependiera de
+  algo invisible en su firma. Ahora viven en `app.state`, las rutas los reciben
+  por `Depends`, y las funciones puras reciben la sal y las redes como
+  parámetros.
+- **Un repositorio para todo el SQL.** `get_analytics` hacía ocho consultas en
+  línea. El filtro `NOT is_internal` se define una vez y los cuatro contadores
+  del resumen salen de una sola pasada por la tabla.
+- **Modelos de respuesta.** La forma de la API no estaba escrita en ningún
+  sitio. Con `/docs` deshabilitado, `app/models.py` es el contrato.
+- **El panel como ficheros.** 250 líneas de HTML, CSS y JavaScript dentro de una
+  cadena Python no pasaban por ningún linter ni por la CSP. Ahora son tres
+  ficheros en `app/static/`, servidos bajo `/analytics/` con las mismas
+  credenciales y con `script-src 'self'`.
+- **User-Agent como tabla.** El orden de las comprobaciones, que ya había
+  falseado la estadística una vez, pasa a ser un dato visible en lugar de una
+  propiedad emergente de una cadena de `if`.
+
+Las guardas de CI que leían `main.py` ahora recorren el paquete completo, y la
+de autenticación falla si encuentra menos rutas privadas de las esperadas, para
+que un cambio de prefijo no la deje comprobando nada.
+
+---
+
+## 7. Próximos pasos
 
 - **Despliegue automático**: `deploy.yml` ya actualiza el VPS cuando la CI pasa
   en `main` y verifica el resultado desde fuera; queda configurar los secretos
@@ -265,7 +299,10 @@ versiones de idioma.
 
 | Tema | Dónde |
 |---|---|
-| Autenticación y anonimización | `backend/main.py` |
+| Autenticación | `backend/app/security.py` |
+| Anonimización y tráfico interno | `backend/app/privacy.py` |
+| SQL y filtro `NOT is_internal` | `backend/app/repositories/visits.py` |
+| Contrato de la API | `backend/app/models.py` |
 | Routers, rate limit y secretos obligatorios | `docker-compose.yaml` |
 | Esquema y vista | `database/init-analytics.sql` |
 | Migración de purga | `database/migrate-anonymize-ips.sql` |

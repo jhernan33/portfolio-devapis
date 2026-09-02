@@ -51,8 +51,8 @@ jobs:
       # ld+json es un bloque de datos, no ejecutable, y sí está permitido.
       - name: Sin JavaScript inline (lo bloquea la CSP)
         run: |
-          if grep -nE '<script(?![^>]*src=)(?![^>]*application/ld\+json)' -P src/*.html; then
-            echo "::error::Script inline en src/: la CSP script-src 'self' lo bloqueará"
+          if grep -nE '<script(?![^>]*src=)(?![^>]*application/ld\+json)' -P src/*.html backend/app/static/*.html; then
+            echo "::error::Script inline: la CSP script-src 'self' lo bloqueará (src/ y el panel del backend)"
             exit 1
           fi
 
@@ -237,7 +237,7 @@ jobs:
 
       - name: Sintaxis y dependencias
         run: |
-          python -m compileall -q backend/main.py
+          python -m compileall -q backend/main.py backend/migrar_user_agents.py backend/app
           pip install -r backend/requirements-dev.txt
 
       # Los tests no necesitan PostgreSQL: el pool se sustituye por un doble en
@@ -249,34 +249,44 @@ jobs:
         run: python -m pytest
 
       # Estas dos reglas están escritas en CLAUDE.md y son fáciles de romper.
+      # Se recorren TODOS los módulos de rutas: una ruta nueva en un fichero
+      # nuevo tiene que pasar por aquí igual. Cubre /api/analytics* y todo lo
+      # que cuelga de /analytics, incluidos los ficheros estáticos del panel.
       - name: Toda ruta de datos de visitas exige autenticación
         run: |
           python3 - <<'PY'
           import ast, sys, pathlib
-          arbol = ast.parse(pathlib.Path("backend/main.py").read_text(encoding="utf-8"))
-          fallos = []
-          for n in ast.walk(arbol):
-              if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                  continue
-              rutas = [d for d in n.decorator_list
-                       if isinstance(d, ast.Call) and d.args
-                       and isinstance(d.args[0], ast.Constant)
-                       and str(d.args[0].value).startswith("/api/analytics")
-                       or (isinstance(d, ast.Call) and d.args
+          PRIVADAS = ("/api/analytics", "/analytics")
+          fallos, vistas = [], 0
+          for fichero in sorted(pathlib.Path("backend/app/routes").glob("*.py")):
+              arbol = ast.parse(fichero.read_text(encoding="utf-8"))
+              for n in ast.walk(arbol):
+                  if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                      continue
+                  rutas = [d for d in n.decorator_list
+                           if isinstance(d, ast.Call) and d.args
                            and isinstance(d.args[0], ast.Constant)
-                           and str(d.args[0].value) == "/analytics")]
-              if rutas and "require_analytics_auth" not in ast.unparse(n.args):
-                  fallos.append(n.name)
+                           and str(d.args[0].value).startswith(PRIVADAS)]
+                  if not rutas:
+                      continue
+                  vistas += 1
+                  if "require_analytics_auth" not in ast.unparse(n.args):
+                      fallos.append(f"{fichero.name}:{n.name}")
           if fallos:
               sys.exit(f"::error::Rutas sin Depends(require_analytics_auth): {fallos}")
-          print("Matriz de autenticación OK")
+          if vistas < 3:
+              sys.exit(f"::error::Solo se han encontrado {vistas} rutas privadas; ¿ha cambiado el prefijo?")
+          print(f"Matriz de autenticación OK ({vistas} rutas privadas)")
           PY
 
       - name: Ninguna IP se guarda en claro
         run: |
           python3 - <<'PY'
           import pathlib, re, sys
-          s = pathlib.Path("backend/main.py").read_text(encoding="utf-8")
+          # Todo el paquete: el esquema está en db.py y el INSERT en el
+          # repositorio, y mañana pueden moverse.
+          s = "\n".join(f.read_text(encoding="utf-8")
+                        for f in sorted(pathlib.Path("backend/app").rglob("*.py")))
 
           # Buscar la palabra suelta "ip_address" no sirve: `ipaddress.ip_address()`
           # es la función de la biblioteca estándar que HACE la anonimización, y
@@ -302,17 +312,17 @@ jobs:
           PY
 
       # El esquema vive en dos sitios y tienen que coincidir (CLAUDE.md).
-      - name: DDL sincronizado entre main.py y init-analytics.sql
+      - name: DDL sincronizado entre app/db.py y init-analytics.sql
         run: |
           python3 - <<'PY'
           import pathlib, re, sys
-          py = pathlib.Path("backend/main.py").read_text(encoding="utf-8")
+          py = pathlib.Path("backend/app/db.py").read_text(encoding="utf-8")
           sql = pathlib.Path("database/init-analytics.sql").read_text(encoding="utf-8")
           cols = lambda t: set(re.findall(
               r'^\s*(ip_prefix|ip_hash|user_agent|browser|os|device_type|referer|language|is_internal|visited_at|created_at)\b',
               t, re.M))
           if cols(py) != cols(sql):
-              sys.exit(f"::error::Esquemas divergentes: solo en main.py {cols(py)-cols(sql)}, "
+              sys.exit(f"::error::Esquemas divergentes: solo en db.py {cols(py)-cols(sql)}, "
                        f"solo en el SQL {cols(sql)-cols(py)}")
           print("Esquemas sincronizados")
           PY
@@ -409,3 +419,4 @@ jobs:
 
       - name: Construir la imagen del backend
         run: docker build -t cv-analytics:ci ./backend
+

@@ -20,7 +20,7 @@ Professional CV/Portfolio landing page plus a self-hosted visit-tracking analyti
 | `/api/analytics/recent` | GET | **HTTP Basic** — recent visits JSON |
 | `/analytics` | GET | **HTTP Basic** — HTML dashboard |
 
-Auth is enforced **in the application** (`require_analytics_auth` in `backend/main.py`),
+Auth is enforced **in the application** (`require_analytics_auth` in `backend/app/security.py`),
 not in Traefik, so protection is versioned and survives container recreation.
 `/docs`, `/redoc` and `/openapi.json` are disabled.
 
@@ -73,8 +73,8 @@ python -m pytest
 ```
 
 No PostgreSQL required: `conftest.py` replaces the pool with an in-memory double
-and `ASGITransport` skips the `lifespan`, so each test injects the `SETTINGS` and
-`DB_POOL` it needs. A suite that requires a container is a suite that stops being
+and `ASGITransport` skips the `lifespan`, so each test injects a `Settings` and the
+fake pool into `app.state`. A suite that requires a container is a suite that stops being
 run. Cover, in order of importance: `anonymize_ip`/`is_internal_ip` (nothing but a
 truncated prefix and a salted hash ever reaches the DB, `X-Forwarded-For`
 injection is neutralized), the auth matrix (every `/api/analytics*` and
@@ -86,8 +86,9 @@ UA string carries several clues at once and the first branch wins: Opera and Edg
 also announce `Chrome/`, Android declares `Linux`, and iPhone/iPad declare
 `like Mac OS X`. Those three were mis-ordered and silently mislabelled every
 Opera, Android and iOS visit ever recorded — while `device_type`, computed
-separately, correctly said `Mobile`. Add new browsers/OSes most-specific-first
-and add a test.
+separately, correctly said `Mobile`. The rules are ordered tables (`BROWSERS`,
+`SYSTEMS`) in `backend/app/useragent.py`, so the order is visible data: add new
+browsers/OSes as a row, most-specific-first, and add a test.
 
 **Frontend — manual checklist:** theme toggle (light/dark), smooth-scroll nav,
 certificate modal (click any cert card), PDF export button, responsive layouts,
@@ -115,15 +116,32 @@ Analytics      POSTs to https://devapis.cloud/api/track ~1s after load; fails si
 
 The `Analytics` module hardcodes the production `/api/track` URL and swallows all errors so tracking never affects UX. It sends no body — the backend derives everything from request headers.
 
-### Backend Architecture (`backend/main.py`)
-Single-file FastAPI app. Key points:
+### Backend Architecture (`backend/app/`)
+FastAPI app assembled by `create_app()` in `backend/app/__init__.py`; `backend/main.py`
+only instantiates it for uvicorn. One module per responsibility:
 
-- **Connection pool:** one global `asyncpg` pool created in the `lifespan` handler (`min_size=1, max_size=10`), closed on shutdown.
-- **Schema auto-init:** on startup `init_database()` runs the DDL (`CREATE TABLE IF NOT EXISTS`, idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` migrations, indexes, the `cv_analytics_summary` view) and then backfills anonymized IPs for legacy rows. This mirrors `database/init-analytics.sql`. **If you change the schema, update both** `main.py`'s `DDL_SCRIPT` and `database/init-analytics.sql`.
-- **Required config:** `DB_PASSWORD`, `ANALYTICS_USER`, `ANALYTICS_PASSWORD`, `ANALYTICS_IP_SALT` have **no defaults** — `get_settings()` raises and the container refuses to start if any is missing. This is deliberate: the old code silently fell back to `postgres`/`postgres`. `docker-compose.yaml` additionally requires `DB_HOST`, `DB_NAME` and `DB_USER` via `${VAR:?}`, after a defaulted `DB_HOST=postgres17` pointed at a container that did not exist on the host and left the service restart-looping unnoticed.
+```
+app/config.py             Settings (frozen dataclass) + load_settings(); required secrets
+app/security.py           require_analytics_auth (HTTP Basic, constant-time compare)
+app/privacy.py            anonymize_ip, is_internal_ip, client_ip_from_request
+app/useragent.py          parse_user_agent as ordered rule tables
+app/db.py                 create_pool, DDL_SCRIPT, init_database + legacy backfills
+app/models.py             Pydantic response models (the API contract; /docs is off)
+app/repositories/visits.py VisitRepository — the only place that speaks SQL
+app/routes/public.py      POST /api/track, GET /health
+app/routes/analytics.py   /api/analytics, /api/analytics/recent, /analytics + its css/js
+app/static/               dashboard.html / .css / .js (no inline script; served with CSP)
+app/dependencies.py       get_settings / get_visits — read app.state, injected via Depends
+```
+
+Key points:
+
+- **Connection pool:** one `asyncpg` pool created in the `lifespan` handler (`min_size=1, max_size=10`), stored in `app.state.pool` and closed on shutdown. There is **no module-level state**: settings and pool live in `app.state`, and routes receive them through `Depends` (`app/dependencies.py`). That is what lets the tests swap the pool for an in-memory double without patching modules.
+- **Schema auto-init:** on startup `init_database()` runs the DDL (`CREATE TABLE IF NOT EXISTS`, idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` migrations, indexes, the `cv_analytics_summary` view) and then backfills anonymized IPs for legacy rows. This mirrors `database/init-analytics.sql`. **If you change the schema, update both** `backend/app/db.py`'s `DDL_SCRIPT` and `database/init-analytics.sql`.
+- **Required config:** `DB_PASSWORD`, `ANALYTICS_USER`, `ANALYTICS_PASSWORD`, `ANALYTICS_IP_SALT` have **no defaults** — `load_settings()` raises and the container refuses to start if any is missing. This is deliberate: the old code silently fell back to `postgres`/`postgres`. `docker-compose.yaml` additionally requires `DB_HOST`, `DB_NAME` and `DB_USER` via `${VAR:?}`, after a defaulted `DB_HOST=postgres17` pointed at a container that did not exist on the host and left the service restart-looping unnoticed.
 - **IP anonymization:** IPs are **never stored in clear text**. `anonymize_ip()` validates the value is a real IP (which also neutralizes injection via the client-controlled `x-forwarded-for` header), then stores `ip_prefix` (truncated /24 IPv4, /48 IPv6) and `ip_hash` (SHA-256 salted with `ANALYTICS_IP_SALT`). Changing the salt breaks unique-visitor continuity.
 - **Visit tracking:** `/api/track` parses browser/OS/device from the User-Agent via a hand-rolled `parse_user_agent()` (no external UA library) and inserts a row. Errors return `{"status":"error"}` without the exception detail.
-- **Dashboard:** built with `createElement`/`textContent`, never `innerHTML` with request-derived data.
+- **Dashboard:** three plain files in `backend/app/static/` served by authenticated routes under `/analytics/`, with a `script-src 'self'` CSP. The JS builds the DOM with `createElement`/`textContent`, never `innerHTML` with request-derived data.
 - **Timezone:** stored timestamps are UTC; API responses convert display times to Venezuela time (UTC-4) via `to_venezuela_time()`.
 - **CORS:** restricted to `https://devapis.cloud` and localhost origins.
 - **Data model:** single table `cv_visits` (ip_prefix, ip_hash, user_agent, browser, os, device_type, referer, language, `is_internal`, visited_at, created_at).
@@ -204,10 +222,13 @@ Spanish (`lang="es"`), semantic HTML5, ARIA labels, BEM class names.
 - Support both `click` and `touchend` for mobile buttons.
 - CSP forbids inline scripts — all JS must live in `main.js`.
 
-### Backend (`backend/main.py`)
+### Backend (`backend/app/`)
 - Keep it dependency-light (currently only fastapi, uvicorn, asyncpg). Adding a lib means editing `backend/requirements.txt` and rebuilding the image.
-- Schema changes: update DDL in `main.py` **and** `database/init-analytics.sql`.
-- Acquire connections via `DB_POOL.acquire()`; never open ad-hoc connections.
+- Schema changes: update DDL in `backend/app/db.py` **and** `database/init-analytics.sql`.
+- All SQL lives in `app/repositories/`. Routes call repository methods; they never touch the pool or write SQL. The repository acquires from the pool per method; never open ad-hoc connections.
+- No module-level state. Anything a route needs comes through `Depends` from `app/dependencies.py`; pure functions (`anonymize_ip`, `is_internal_ip`) take their inputs as parameters.
+- Every response has a model in `app/models.py` and the route declares it as `response_model`.
+- The dashboard has no inline JS (the CI guard covers `backend/app/static/*.html` too) and every file under `/analytics/` takes `Depends(require_analytics_auth)`.
 - Any new endpoint that returns visit data must take `Depends(require_analytics_auth)`.
 - Never persist a raw IP. Route it through `anonymize_ip()`.
 - Never return `str(e)` to the client; log it and return a generic message.

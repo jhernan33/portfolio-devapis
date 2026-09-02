@@ -11,8 +11,8 @@ Dos decisiones que condicionan todo lo demás:
 
 2. **No se dispara el `lifespan`.** `ASGITransport` entra directamente al
    enrutado sin ejecutar el arranque, así que ni se leen variables de entorno
-   ni se crea el pool. Cada test inyecta a mano el `SETTINGS` y el `DB_POOL`
-   que necesita, que además es la única forma de probar configuraciones
+   ni se crea el pool. Cada test inyecta en `app.state` la configuración y el
+   pool que necesita, que además es la única forma de probar configuraciones
    distintas dentro del mismo proceso.
 """
 import pathlib
@@ -22,15 +22,23 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-# El backend es un módulo suelto (`main.py`), no un paquete instalable.
+# El backend no es un paquete instalable: se importa desde su directorio.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 import main  # noqa: E402
+from app.config import Settings  # noqa: E402
 
 
 USUARIO = "reclutador"
 CLAVE = "clave-de-prueba"
 SAL = "sal-de-prueba"
+
+
+class FilaCero(dict):
+    """Una fila en la que toda columna vale 0: el resumen de una base vacía."""
+
+    def __missing__(self, _columna):
+        return 0
 
 
 class ConexionFalsa:
@@ -44,7 +52,7 @@ class ConexionFalsa:
 
     def __init__(self):
         self.ejecutados = []      # [(sql, args)] de execute()
-        self.consultados = []     # [(sql, args)] de fetch()/fetchval()
+        self.consultados = []     # [(sql, args)] de fetch()/fetchval()/fetchrow()
         self.respuestas = {}      # subcadena del SQL -> valor a devolver
         self.error = None         # excepción a lanzar, para simular la BD caída
 
@@ -70,6 +78,12 @@ class ConexionFalsa:
             raise self.error
         self.consultados.append((sql, args))
         return self._buscar(sql, 0)
+
+    async def fetchrow(self, sql, *args):
+        if self.error:
+            raise self.error
+        self.consultados.append((sql, args))
+        return self._buscar(sql, FilaCero())
 
     async def fetch(self, sql, *args):
         if self.error:
@@ -122,10 +136,10 @@ def configurar(monkeypatch, conexion):
 
     Devuelve una función para ajustar la configuración por test (por ejemplo,
     para añadir redes a ignorar) sin que se filtre a los demás: monkeypatch
-    revierte los globales al terminar.
+    revierte `app.state` al terminar.
     """
     def _aplicar(**extra):
-        ajustes = {
+        valores = {
             "db_user": "test",
             "db_password": "test",
             "db_name": "test",
@@ -134,11 +148,12 @@ def configurar(monkeypatch, conexion):
             "analytics_user": USUARIO,
             "analytics_password": CLAVE,
             "ip_salt": SAL,
-            "ignore_networks": [],
+            "ignore_networks": (),
         }
-        ajustes.update(extra)
-        monkeypatch.setattr(main, "SETTINGS", ajustes)
-        monkeypatch.setattr(main, "DB_POOL", PoolFalso(conexion))
+        valores.update(extra)
+        ajustes = Settings(**valores)
+        monkeypatch.setattr(main.app.state, "settings", ajustes, raising=False)
+        monkeypatch.setattr(main.app.state, "pool", PoolFalso(conexion), raising=False)
         return ajustes
 
     _aplicar()

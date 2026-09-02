@@ -14,7 +14,12 @@ pytestmark = pytest.mark.asyncio
 
 BUENAS = (USUARIO, CLAVE)
 
-RUTAS_PRIVADAS = ["/api/analytics", "/api/analytics/recent", "/analytics"]
+# Incluye los ficheros del panel: se sirven bajo el mismo prefijo y con las
+# mismas credenciales, para que nada del panel quede fuera de la protección.
+RUTAS_PRIVADAS = [
+    "/api/analytics", "/api/analytics/recent", "/analytics",
+    "/analytics/dashboard.js", "/analytics/dashboard.css",
+]
 
 
 # ============================================================
@@ -237,7 +242,7 @@ async def test_el_limite_de_recientes_se_valida(cliente, limite, codigo):
 async def test_las_fechas_se_devuelven_en_hora_de_venezuela(cliente, conexion):
     import datetime
     conexion.respuestas = {
-        "FROM cv_visits\n            ORDER BY visited_at DESC": [
+        "LIMIT $1": [
             {
                 "ip_prefix": "93.184.216.0", "browser": "Chrome", "os": "Linux",
                 "device_type": "Desktop", "referer": None, "language": "es",
@@ -255,3 +260,34 @@ async def test_el_panel_se_sirve_como_html(cliente):
     respuesta = await cliente.get("/analytics", auth=BUENAS)
     assert respuesta.headers["content-type"].startswith("text/html")
     assert "CV Analytics Dashboard" in respuesta.text
+
+
+async def test_el_panel_no_lleva_script_inline_y_declara_csp(cliente):
+    """
+    El panel construye el DOM desde un fichero JS aparte, así que puede
+    llevar la misma CSP que el CV: `script-src 'self'`. Un script inline
+    volvería a quedar fuera de cualquier política.
+    """
+    respuesta = await cliente.get("/analytics", auth=BUENAS)
+    assert "script-src 'self'" in respuesta.headers.get("content-security-policy", "")
+    assert "<script>" not in respuesta.text
+    assert 'src="/analytics/dashboard.js"' in respuesta.text
+
+
+async def test_los_ficheros_del_panel_se_sirven_con_su_tipo(cliente):
+    js = await cliente.get("/analytics/dashboard.js", auth=BUENAS)
+    css = await cliente.get("/analytics/dashboard.css", auth=BUENAS)
+    assert js.headers["content-type"].startswith("text/javascript")
+    assert css.headers["content-type"].startswith("text/css")
+    assert "innerHTML" not in js.text        # solo textContent/createElement
+
+
+async def test_el_resumen_sale_de_una_sola_consulta(cliente, conexion):
+    """
+    Los cuatro contadores del resumen se calculan en una pasada por la tabla.
+    Cuatro consultas separadas cuentan lo mismo cuatro veces.
+    """
+    await cliente.get("/api/analytics", auth=BUENAS)
+    resumenes = [sql for sql, _ in conexion.consultados if "total_visits" in sql]
+    assert len(resumenes) == 1
+    assert "unique_visitors" in resumenes[0] and "today_visits" in resumenes[0]
