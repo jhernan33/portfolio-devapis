@@ -82,6 +82,10 @@ services:
       # y solo se excluyen los rangos privados. Aquí va la IP pública de este
       # servidor, que la detección automática no puede reconocer.
       - ANALYTICS_IGNORE_NETWORKS=${ANALYTICS_IGNORE_NETWORKS:-}
+      # Zona de presentación y, sobre todo, la que define dónde empieza el
+      # día en las estadísticas. Opcional: America/Caracas por defecto.
+      - ANALYTICS_DISPLAY_TZ=${ANALYTICS_DISPLAY_TZ:-America/Caracas}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     labels:
       - "traefik.enable=true"
 

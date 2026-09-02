@@ -152,11 +152,13 @@ if [ "$TABLE_EXISTS" = "t" ]; then
     fi
 fi
 
-# Ejecutar script SQL
-echo "   Ejecutando script SQL..."
-cat database/init-analytics.sql | $PSQL
+# El esquema ya no se crea desde aquí: lo aplican las migraciones de
+# backend/migrations/ la primera vez que arranca el contenedor, y quedan
+# anotadas en la tabla schema_migrations. Crear la tabla a mano por un lado y
+# migrarla por otro era justo la duplicidad que se quitó.
+echo "   El esquema lo crean las migraciones al arrancar analytics-api."
 
-# Verificar que se creó correctamente
+# Verificar que se creó correctamente (tras levantar el servicio)
 TABLE_EXISTS=$($PSQL -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='cv_visits')")
 
 if [ "$TABLE_EXISTS" = "t" ]; then

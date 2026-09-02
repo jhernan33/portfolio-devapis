@@ -85,13 +85,16 @@ Conecta a tu base de datos PostgreSQL y ejecuta el script SQL:
 
 ```bash
 # Opción 1: Desde el host
-cat database/init-analytics.sql | docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
+# El esquema ya no se crea a mano: lo aplican las migraciones de
+# backend/migrations/ la primera vez que arranca analytics-api, y quedan
+# anotadas en la tabla schema_migrations. Solo hay que crear la base y el rol.
+docker exec -i "$DB_HOST" psql -U postgres -f - < database/create-analytics-role.sql
 
 # Opción 2: Manualmente
 docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
 ```
 
-Si usas la opción 2, copia y pega el contenido de `database/init-analytics.sql`
+Si usas la opción 2, copia y pega el contenido de `database/create-analytics-role.sql`
 
 ### Verificar que la tabla se creó correctamente:
 

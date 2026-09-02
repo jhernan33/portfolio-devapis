@@ -49,7 +49,9 @@ def visit_from_request(request: Request, settings: Settings) -> Visit:
         # redes a ignorar puede cambiar, y lo que interesa es cómo se veía la
         # visita cuando ocurrió.
         is_internal=is_internal_ip(raw_ip, settings.ignore_networks),
-        visited_at=datetime.now(UTC).replace(tzinfo=None),
+        # Con tzinfo: la columna es TIMESTAMPTZ desde la migración 0002 y
+        # PostgreSQL guarda el instante, no una hora suelta sin contexto.
+        visited_at=datetime.now(UTC),
     )
 
 

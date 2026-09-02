@@ -8,12 +8,9 @@ motivo escrito en esos `print`, mezclado con el ruido de uvicorn.
 
 import logging
 
-import pytest
-
 from app.logs import LOGGER, configurar_logging
 
 
-@pytest.mark.asyncio
 async def test_un_fallo_al_registrar_la_visita_queda_en_el_log_con_su_traza(
     cliente, conexion, registro
 ):
@@ -32,7 +29,6 @@ async def test_un_fallo_al_registrar_la_visita_queda_en_el_log_con_su_traza(
     assert "Traceback" in registro.text
 
 
-@pytest.mark.asyncio
 async def test_el_health_fallido_tambien_se_registra(cliente, conexion, registro):
     conexion.error = RuntimeError("connection refused a postgres17")
     assert (await cliente.get("/health")).status_code == 503

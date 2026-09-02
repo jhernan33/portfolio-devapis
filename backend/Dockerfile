@@ -30,8 +30,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # `docker compose exec analytics-api python /app/migrar_user_agents.py`, y
 # tenerla dentro evita el `docker cp` a mano justo cuando hay que tocar datos
 # de producción. No se ejecuta sola: es un script, no parte del arranque.
-COPY main.py migrar_user_agents.py ./
+COPY main.py mantenimiento.py migrar_user_agents.py depurar_visitas.py ./
 COPY app/ ./app/
+# El esquema vive en migrations/ y se aplica al arrancar. Sin esta línea el
+# contenedor levanta contra una base sin tabla y falla en la primera visita.
+COPY migrations/ ./migrations/
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \

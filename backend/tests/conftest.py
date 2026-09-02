@@ -92,6 +92,10 @@ class ConexionFalsa:
         self.consultados.append((sql, args))
         return self._buscar(sql, [])
 
+    def transaction(self):
+        """Las migraciones envuelven cada versión en una transacción."""
+        return _Transaccion(self)
+
     # --- ayudas para los asertos -------------------------------------------
 
     @property
@@ -101,6 +105,27 @@ class ConexionFalsa:
     def argumentos_insertados(self):
         """Argumentos del último INSERT, o None si no hubo ninguno."""
         return self.inserciones[-1][1] if self.inserciones else None
+
+
+class _Transaccion:
+    """
+    Transacción de mentira que sí respeta lo esencial: si el bloque lanza, lo
+    escrito dentro no cuenta. Sin esto no se podría comprobar que una migración
+    a medias no queda anotada como aplicada.
+    """
+
+    def __init__(self, conexion):
+        self._conexion = conexion
+        self._marca = 0
+
+    async def __aenter__(self):
+        self._marca = len(self._conexion.ejecutados)
+        return self
+
+    async def __aexit__(self, tipo, *_resto):
+        if tipo is not None:
+            del self._conexion.ejecutados[self._marca :]
+        return False
 
 
 class _Adquisicion:

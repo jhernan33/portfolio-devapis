@@ -302,49 +302,65 @@ jobs:
         run: |
           python3 - <<'PY'
           import pathlib, re, sys
-          # Todo el paquete: el esquema está en db.py y el INSERT en el
-          # repositorio, y mañana pueden moverse.
-          s = "\n".join(f.read_text(encoding="utf-8")
-                        for f in sorted(pathlib.Path("backend/app").rglob("*.py")))
+
+          # El esquema vive en las migraciones y el INSERT en el repositorio.
+          # Se leen los dos: buscar solo en uno deja el invariante a medias.
+          sql = "\n".join(f.read_text(encoding="utf-8")
+                          for f in sorted(pathlib.Path("backend/migrations").glob("*.sql")))
+          py = "\n".join(f.read_text(encoding="utf-8")
+                         for f in sorted(pathlib.Path("backend/app").rglob("*.py")))
 
           # Buscar la palabra suelta "ip_address" no sirve: `ipaddress.ip_address()`
-          # es la función de la biblioteca estándar que HACE la anonimización, y
-          # la migración de instalaciones antiguas tiene que nombrar la columna
-          # vieja para poder rellenar ip_prefix/ip_hash a partir de ella.
-          # El invariante real son estos dos:
+          # es la función de la biblioteca estándar que HACE la anonimización, y la
+          # migración de instalaciones antiguas tiene que nombrar la columna vieja
+          # para poder rellenar ip_prefix/ip_hash a partir de ella.
+          # Los invariantes reales son estos tres:
 
           # 1. La tabla que se crea no declara la columna.
-          m = re.search(r'CREATE TABLE IF NOT EXISTS cv_visits\s*\((.*?)\n\);', s, re.S)
+          m = re.search(r'CREATE TABLE IF NOT EXISTS cv_visits\s*\((.*?)\n\);', sql, re.S)
           if not m:
-              sys.exit("::error::No encuentro el CREATE TABLE de cv_visits")
+              sys.exit("::error::No encuentro el CREATE TABLE de cv_visits en backend/migrations/")
           if re.search(r'^\s*ip_address\b', m.group(1), re.M):
               sys.exit("::error::El CREATE TABLE vuelve a declarar ip_address")
 
-          # 2. Ningún INSERT escribe una IP completa.
-          for ins in re.findall(r'INSERT INTO cv_visits(.*?)(?:"""|\'\'\')', s, re.S):
+          # 2. Ninguna migración posterior la vuelve a añadir.
+          if re.search(r'ADD COLUMN (IF NOT EXISTS )?ip_address\b', sql):
+              sys.exit("::error::Una migración añade la columna ip_address")
+
+          # 3. Ningún INSERT del servicio escribe una IP completa.
+          for ins in re.findall(r'INSERT INTO cv_visits(.*?)(?:"""|\'\'\')', py, re.S):
               if "ip_address" in ins:
                   sys.exit("::error::Un INSERT escribe ip_address")
 
           for f in ("ip_prefix", "ip_hash", "anonymize_ip"):
-              assert f in s, f
+              assert f in py, f
           print("Anonimización presente; la columna en claro no se crea ni se escribe")
           PY
 
-      # El esquema vive en dos sitios y tienen que coincidir (CLAUDE.md).
-      - name: DDL sincronizado entre app/db.py y init-analytics.sql
+      - name: El directorio de migraciones entra en la imagen
         run: |
-          python3 - <<'PY'
-          import pathlib, re, sys
-          py = pathlib.Path("backend/app/db.py").read_text(encoding="utf-8")
-          sql = pathlib.Path("database/init-analytics.sql").read_text(encoding="utf-8")
-          cols = lambda t: set(re.findall(
-              r'^\s*(ip_prefix|ip_hash|user_agent|browser|os|device_type|referer|language|is_internal|visited_at|created_at)\b',
-              t, re.M))
-          if cols(py) != cols(sql):
-              sys.exit(f"::error::Esquemas divergentes: solo en db.py {cols(py)-cols(sql)}, "
-                       f"solo en el SQL {cols(sql)-cols(py)}")
-          print("Esquemas sincronizados")
-          PY
+          grep -qE '^COPY +migrations/' backend/Dockerfile || {
+            echo "::error::backend/Dockerfile no copia migrations/: el contenedor arrancaría sin esquema"
+            exit 1; }
+          test -n "$(ls backend/migrations/*.sql 2>/dev/null)" || {
+            echo "::error::No hay migraciones en backend/migrations/"; exit 1; }
+          echo "Migraciones: $(ls backend/migrations/ | tr '\n' ' ')"
+
+      # Una migración ya aplicada no se edita: se añade otra. Editarla deja las
+      # bases que ya la aplicaron con un esquema distinto del que dice tener, y
+      # nada vuelve a mirarlo.
+      - name: Las migraciones aplicadas no se reescriben
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --quiet --depth=1 origin "${{ github.base_ref }}"
+          tocadas=$(git diff --name-status "origin/${{ github.base_ref }}" -- backend/migrations/ \
+                    | grep -vE '^A' || true)
+          if [ -n "$tocadas" ]; then
+            echo "::error::Se han modificado o borrado migraciones existentes:"
+            echo "$tocadas"
+            exit 1
+          fi
+          echo "Solo migraciones nuevas"
 
   compose:
     name: Docker Compose

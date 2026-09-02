@@ -6,23 +6,18 @@ estaba escrita en ningún sitio. Con modelos, un campo mal escrito falla en el
 test y no en el panel; y como `/docs` está deshabilitado, esto es además la
 única documentación del contrato.
 
-Las fechas se guardan en UTC y se sirven en hora de Venezuela. La conversión
-vive en `DisplayDateTime`, un solo tipo compartido por todos los campos de
-fecha, para que nadie tenga que acordarse de convertir.
+Las fechas se guardan en UTC y se sirven en la zona de ANALYTICS_DISPLAY_TZ.
+La conversión la hace el repositorio, que es quien tiene la configuración: si
+viviera aquí, en una anotación de tipo, habría que leerla de una variable
+global, que es justo lo que se quitó del backend.
+
+Los modelos reciben datetimes que ya saben en qué zona están, y Pydantic los
+serializa en ISO-8601 con su desplazamiento.
 """
 
 from datetime import date, datetime
-from typing import Annotated
 
-from pydantic import BaseModel, PlainSerializer
-
-from .timeutils import to_venezuela_time
-
-DisplayDateTime = Annotated[
-    datetime,
-    PlainSerializer(lambda dt: to_venezuela_time(dt).isoformat(), return_type=str),
-]
-
+from pydantic import BaseModel
 
 # ---------------------------------------------------------------- públicas
 
@@ -64,7 +59,7 @@ class NetworkCount(BaseModel):
 
     ip_prefix: str
     visits: int
-    last_visit: DisplayDateTime | None
+    last_visit: datetime | None
 
 
 class DeviceCount(BaseModel):
@@ -99,7 +94,7 @@ class RecentVisit(BaseModel):
     referer: str | None
     language: str | None
     is_internal: bool
-    visited_at: DisplayDateTime
+    visited_at: datetime
 
 
 class RecentResponse(BaseModel):
@@ -112,6 +107,6 @@ class DiagnosticsResponse(BaseModel):
     status: str
     visits_total: int
     visits_internal: int
-    last_visit: DisplayDateTime | None
+    last_visit: datetime | None
     pool_size: int
     pool_idle: int

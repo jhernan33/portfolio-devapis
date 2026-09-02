@@ -11,10 +11,16 @@ Devuelve directamente los modelos de `models.py`. No hay una capa de dominio
 intermedia porque no hay lógica que la justifique: una tabla, un servicio.
 
 Se acuñan conexiones del pool por método, nunca conexiones sueltas.
+
+Las fechas salen de la base en UTC y se devuelven ya convertidas a la zona de
+presentación. El corte por día de las consultas agregadas también se hace en
+esa zona: "hoy" es el día del titular, no el de UTC, y con una diferencia de
+cuatro horas eso decide en qué casilla cae toda visita de la tarde.
 """
 
 from dataclasses import astuple, dataclass
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from ..models import (
     AnalyticsResponse,
@@ -28,6 +34,7 @@ from ..models import (
     RecentVisit,
     Summary,
 )
+from ..timeutils import to_display_time
 
 # Toda consulta agregada lleva este filtro. Definido una vez para que no se
 # pueda olvidar en una consulta nueva.
@@ -52,8 +59,17 @@ class Visit:
 
 
 class VisitRepository:
-    def __init__(self, pool):
+    def __init__(self, pool, tz: ZoneInfo):
         self._pool = pool
+        self._tz = tz
+
+    @property
+    def _tz_sql(self) -> str:
+        """Nombre de la zona tal y como lo entiende `AT TIME ZONE` en PostgreSQL."""
+        return self._tz.key
+
+    def _local(self, dt):
+        return to_display_time(dt, self._tz)
 
     async def ping(self) -> None:
         """Comprueba que la base responde. Lanza si no."""
@@ -82,7 +98,7 @@ class VisitRepository:
             visits_internal=fila["internas"],
             # `or None`: con la tabla vacía no hay última visita, y el doble de
             # los tests devuelve 0 en lugar de una fecha.
-            last_visit=fila["ultima"] or None,
+            last_visit=self._local(fila["ultima"] or None),
             pool_size=self._pool.get_size(),
             pool_idle=self._pool.get_idle_size(),
         )
@@ -104,17 +120,25 @@ class VisitRepository:
         async with self._pool.acquire() as conn:
             # Los cuatro contadores del resumen salen de una sola pasada por
             # la tabla, no de cuatro consultas.
-            resumen = await conn.fetchrow(f"""
+            resumen = await conn.fetchrow(
+                f"""
                 SELECT
                     COUNT(*) AS total_visits,
                     COUNT(DISTINCT ip_hash) AS unique_visitors,
                     COUNT(*) FILTER (WHERE visited_at > NOW() - INTERVAL '7 days')
                         AS recent_visits_7d,
-                    COUNT(*) FILTER (WHERE visited_at::date = CURRENT_DATE)
-                        AS today_visits
+                    -- "Hoy" en la zona del titular. Con `visited_at::date` era
+                    -- el día de la sesión de PostgreSQL, y una visita de las
+                    -- ocho de la tarde en Caracas ya contaba como de mañana.
+                    COUNT(*) FILTER (
+                        WHERE (visited_at AT TIME ZONE $1)::date
+                            = (NOW() AT TIME ZONE $1)::date
+                    ) AS today_visits
                 FROM cv_visits
                 WHERE {EXTERNAS}
-            """)
+            """,
+                self._tz_sql,
+            )
 
             navegadores = await conn.fetch(f"""
                 SELECT browser, COUNT(*) AS count
@@ -151,13 +175,16 @@ class VisitRepository:
                 LIMIT 5
             """)
 
-            diarias = await conn.fetch(f"""
-                SELECT DATE(visited_at) AS date, COUNT(*) AS visits
+            diarias = await conn.fetch(
+                f"""
+                SELECT (visited_at AT TIME ZONE $1)::date AS date, COUNT(*) AS visits
                 FROM cv_visits
                 WHERE {EXTERNAS} AND visited_at > NOW() - INTERVAL '30 days'
-                GROUP BY DATE(visited_at)
+                GROUP BY 1
                 ORDER BY date DESC
-            """)
+            """,
+                self._tz_sql,
+            )
 
         return AnalyticsResponse(
             # Por nombre de columna: deja escrito qué devuelve la consulta y
@@ -169,7 +196,14 @@ class VisitRepository:
                 today_visits=resumen["today_visits"],
             ),
             top_browsers=[BrowserCount(**r) for r in navegadores],
-            top_networks=[NetworkCount(**r) for r in redes],
+            top_networks=[
+                NetworkCount(
+                    ip_prefix=r["ip_prefix"],
+                    visits=r["visits"],
+                    last_visit=self._local(r["last_visit"]),
+                )
+                for r in redes
+            ],
             device_stats=[DeviceCount(**r) for r in dispositivos],
             os_stats=[OsCount(**r) for r in sistemas],
             daily_visits=[DailyCount(**r) for r in diarias],
@@ -201,4 +235,6 @@ class VisitRepository:
                 limit,
             )
 
-        return RecentResponse(visits=[RecentVisit(**f) for f in filas])
+        return RecentResponse(
+            visits=[RecentVisit(**{**f, "visited_at": self._local(f["visited_at"])}) for f in filas]
+        )

@@ -329,7 +329,64 @@ cuatro cabeceras y un único `Cache-Control`.
 
 ---
 
-## 9. Próximos pasos
+## 9. Migraciones, husos horarios y respaldo (septiembre 2026)
+
+### El esquema tenía dos copias y ninguna sabía migrar
+
+El DDL vivía en el código y en `database/init-analytics.sql`, con una guarda
+de CI que solo comprobaba que las dos copias se parecieran. `CREATE TABLE IF
+NOT EXISTS` no cubre cambiar una columna existente, así que cada cambio real
+acababa en un script SQL suelto lanzado a mano contra producción y recordado
+por quien estuviera delante.
+
+Ahora hay un directorio `backend/migrations/` numerado y una tabla
+`schema_migrations` que anota lo aplicado. El runner son cuarenta líneas y no
+añade dependencias: traerse Alembic para una tabla habría sido peor. Una
+migración que necesita Python —derivar un hash con sal, por ejemplo— comparte
+la numeración con las de SQL.
+
+Lo que **no** es una migración: `reconciliar_trafico_interno` sigue corriendo
+en cada arranque, porque `ANALYTICS_IGNORE_NETWORKS` cambia. El caso que la
+justifica es descubrir meses después que la IP del propio servidor llevaba
+contándose como visitante; una migración anotada como aplicada no volvería a
+mirar.
+
+### "Hoy" dependía del reloj del contenedor de PostgreSQL
+
+Las columnas eran `TIMESTAMP` sin zona. La aplicación insertaba UTC, pero
+`NOW()` y `CURRENT_DATE` los resolvía PostgreSQL con la zona de su servidor,
+que nadie fijaba. Los cortes de "hoy" y "últimas 24 horas" podían salir
+desplazados sin que nada fallara: los números seguían apareciendo.
+
+Las columnas pasan a `TIMESTAMPTZ`, la sesión se fija en UTC, y dónde empieza
+el día pasa a ser una decisión explícita: `ANALYTICS_DISPLAY_TZ`, por defecto
+`America/Caracas`. Con UTC-4 no es un detalle: una visita de las ocho de la
+tarde en Caracas contaba como del día siguiente. Se verificó insertando una
+visita a las 23:00 de Caracas —03:00 UTC del día siguiente— y comprobando que
+cuenta como de hoy con `America/Caracas` y no con `UTC`.
+
+La vista `cv_analytics_summary` pierde `visits_today`, que era su única
+columna dependiente de una zona. Una vista que responde "hoy" en UTC mientras
+el panel responde "hoy" en Caracas no es una comodidad: es una discrepancia
+esperando a confundir a alguien. Las ventanas móviles que quedan son
+intervalos y no dependen de la zona.
+
+### El único dato irrecuperable no tenía respaldo
+
+`tools/respaldar-db.sh` vuelca la base, **comprueba que el volcado contenga
+la tabla** —un respaldo que no se verifica es un fichero— y rota los
+antiguos. `backend/depurar_visitas.py` retira `user_agent` y `referer` de las
+visitas de más de 24 meses: la cadena de User-Agent es el campo con más
+entropía de cada fila y conservarla para siempre contradice la promesa del
+pie del CV. Se conservan navegador, sistema y hash, que es lo que alimenta
+las estadísticas.
+
+Los dos scripts de mantenimiento comparten `backend/mantenimiento.py`: mismo
+contrato de simulacro por defecto y `--aplicar` explícito, escrito una vez.
+
+---
+
+## 10. Próximos pasos
 
 - **Despliegue automático**: `deploy.yml` ya actualiza el VPS cuando la CI pasa
   en `main` y verifica el resultado desde fuera; queda configurar los secretos
@@ -350,7 +407,9 @@ versiones de idioma.
 | SQL y filtro `NOT is_internal` | `backend/app/repositories/visits.py` |
 | Contrato de la API | `backend/app/models.py` |
 | Routers, rate limit y secretos obligatorios | `docker-compose.yaml` |
-| Esquema y vista | `database/init-analytics.sql` |
+| Esquema versionado | `backend/migrations/` y `backend/app/migrations.py` |
+| Zona de presentación y corte del día | `backend/app/timeutils.py` |
+| Respaldo y retención | `tools/respaldar-db.sh`, `backend/depurar_visitas.py` |
 | Migración de purga | `database/migrate-anonymize-ips.sql` |
 | Rol de permisos mínimos | `database/create-analytics-role.sql` |
 | Runbook de despliegue | `DEPLOY-ANALYTICS.md` |

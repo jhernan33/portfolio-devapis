@@ -72,8 +72,8 @@ docker compose down
 
 ```bash
 cd backend
-pip install -r requirements-dev.txt
-python -m pytest
+make test        # crea .venv, instala requirements-dev y ejecuta pytest
+make lint        # ruff check + ruff format --check, lo mismo que la CI
 ```
 
 No PostgreSQL required: `conftest.py` replaces the pool with an in-memory double
@@ -129,7 +129,12 @@ app/config.py             Settings (frozen dataclass) + load_settings(); require
 app/security.py           require_analytics_auth (HTTP Basic, constant-time compare)
 app/privacy.py            anonymize_ip, is_internal_ip, client_ip_from_request
 app/useragent.py          parse_user_agent as ordered rule tables
-app/db.py                 create_pool, DDL_SCRIPT, init_database + legacy backfills
+app/db.py                 create_pool + reconciliación de tráfico interno en cada arranque
+app/migrations.py         runner de migraciones (SQL numerado + migraciones de Python)
+app/logs.py               logger de la aplicación, nivel por LOG_LEVEL
+app/middleware.py         cabeceras de seguridad de todas las respuestas
+app/timeutils.py          zona de presentación (ANALYTICS_DISPLAY_TZ)
+migrations/*.sql          esquema versionado, anotado en la tabla schema_migrations
 app/models.py             Pydantic response models (the API contract; /docs is off)
 app/repositories/visits.py VisitRepository — the only place that speaks SQL
 app/routes/public.py      POST /api/track, GET /health
@@ -141,12 +146,12 @@ app/dependencies.py       get_settings / get_visits — read app.state, injected
 Key points:
 
 - **Connection pool:** one `asyncpg` pool created in the `lifespan` handler (`min_size=1, max_size=10`), stored in `app.state.pool` and closed on shutdown. There is **no module-level state**: settings and pool live in `app.state`, and routes receive them through `Depends` (`app/dependencies.py`). That is what lets the tests swap the pool for an in-memory double without patching modules.
-- **Schema auto-init:** on startup `init_database()` runs the DDL (`CREATE TABLE IF NOT EXISTS`, idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` migrations, indexes, the `cv_analytics_summary` view) and then backfills anonymized IPs for legacy rows. This mirrors `database/init-analytics.sql`. **If you change the schema, update both** `backend/app/db.py`'s `DDL_SCRIPT` and `database/init-analytics.sql`.
+- **Schema:** versioned migrations in `backend/migrations/`, applied on startup and recorded in `schema_migrations`. **To change the schema, add a numbered file — never edit an applied one.** A migration that needs Python (deriving a salted hash, say) goes in `MIGRACIONES_PYTHON` in `app/migrations.py` and shares the numbering. `backend/Dockerfile` must copy `migrations/`, or the container starts against a schema-less database and only fails on the first visit. Separate from migrations: `reconciliar_trafico_interno()` runs on **every** startup, because `ANALYTICS_IGNORE_NETWORKS` changes and old rows must be re-evaluated when it does.
 - **Required config:** `DB_PASSWORD`, `ANALYTICS_USER`, `ANALYTICS_PASSWORD`, `ANALYTICS_IP_SALT` have **no defaults** — `load_settings()` raises and the container refuses to start if any is missing. This is deliberate: the old code silently fell back to `postgres`/`postgres`. `docker-compose.yaml` additionally requires `DB_HOST`, `DB_NAME` and `DB_USER` via `${VAR:?}`, after a defaulted `DB_HOST=postgres17` pointed at a container that did not exist on the host and left the service restart-looping unnoticed.
 - **IP anonymization:** IPs are **never stored in clear text**. `anonymize_ip()` validates the value is a real IP (which also neutralizes injection via the client-controlled `x-forwarded-for` header), then stores `ip_prefix` (truncated /24 IPv4, /48 IPv6) and `ip_hash` (SHA-256 salted with `ANALYTICS_IP_SALT`). Changing the salt breaks unique-visitor continuity.
 - **Visit tracking:** `/api/track` parses browser/OS/device from the User-Agent via a hand-rolled `parse_user_agent()` (no external UA library) and inserts a row. Errors return `{"status":"error"}` without the exception detail.
 - **Dashboard:** three plain files in `backend/app/static/` served by authenticated routes under `/analytics/`, with a `script-src 'self'` CSP. The JS builds the DOM with `createElement`/`textContent`, never `innerHTML` with request-derived data.
-- **Timezone:** stored timestamps are UTC; API responses convert display times to Venezuela time (UTC-4) via `to_venezuela_time()`.
+- **Timezone:** columns are `TIMESTAMPTZ` and the pool pins the session to UTC, so nothing depends on the Postgres container's clock settings. `ANALYTICS_DISPLAY_TZ` (default `America/Caracas`) decides two things: the offset of the dates the API returns, and **where the day starts** in the aggregates. A visit at 20:00 in Caracas used to land on the next day when the cut was made in UTC. The repository applies it in SQL (`AT TIME ZONE $1`); an unknown zone warns and falls back to UTC rather than refusing to start.
 - **CORS:** restricted to `https://devapis.cloud` and localhost origins.
 - **Data model:** single table `cv_visits` (ip_prefix, ip_hash, user_agent, browser, os, device_type, referer, language, `is_internal`, visited_at, created_at).
 - **Internal traffic:** `is_internal_ip()` flags a visit as own traffic when the IP is private/loopback/link-local/reserved **or** falls in `ANALYTICS_IGNORE_NETWORKS`. Both checks are needed: the server's own public IP is a perfectly valid public IP, so `is_private` does not catch it, and every `curl` health check fired from the VPS would count as a visit — in the first real-traffic measurement that plus internal browsing was **70% of all recorded "visits"**. Flagged rows are still stored and still appear in `/api/analytics/recent` (marked), but every aggregate query and the `cv_analytics_summary` view filter them out with `WHERE NOT is_internal`. Keep `/recent` unfiltered: in local development everything is private, and without it you cannot tell "nothing is arriving" from "it arrives and is being discarded". Legacy installs may still carry an `ip_address` column until `database/migrate-anonymize-ips.sql` is run.
@@ -244,7 +249,7 @@ Spanish (`lang="es"`), semantic HTML5, ARIA labels, BEM class names.
 
 ### Backend (`backend/app/`)
 - Keep it dependency-light (currently only fastapi, uvicorn, asyncpg). Adding a lib means editing `backend/requirements.txt` and rebuilding the image.
-- Schema changes: update DDL in `backend/app/db.py` **and** `database/init-analytics.sql`.
+- Schema changes: add a file to `backend/migrations/` with the next number. Never edit one that has been applied — the databases that already ran it would keep a schema different from the one they claim to have.
 - All SQL lives in `app/repositories/`. Routes call repository methods; they never touch the pool or write SQL. The repository acquires from the pool per method; never open ad-hoc connections.
 - No module-level state. Anything a route needs comes through `Depends` from `app/dependencies.py`; pure functions (`anonymize_ip`, `is_internal_ip`) take their inputs as parameters.
 - Every response has a model in `app/models.py` and the route declares it as `response_model`.

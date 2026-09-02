@@ -44,14 +44,10 @@ Desde el contenedor, si no hay Python con asyncpg en el host:
 """
 
 import argparse
-import asyncio
-import sys
 from collections import Counter
 
-import asyncpg
-
-from app.config import load_settings
 from app.useragent import parse_user_agent
+from mantenimiento import avisar_simulacro, conectar, ejecutar_script
 
 # Solo estas tres columnas se derivan del User-Agent.
 CAMPOS = ("browser", "os", "device_type")
@@ -102,15 +98,8 @@ def resumir(filas, correcciones):
     return cambios
 
 
-async def ejecutar(aplicar: bool) -> int:
-    ajustes = load_settings()
-    conexion = await asyncpg.connect(
-        user=ajustes.db_user,
-        password=ajustes.db_password,
-        database=ajustes.db_name,
-        host=ajustes.db_host,
-        port=ajustes.db_port,
-    )
+async def ejecutar(argumentos: argparse.Namespace) -> int:
+    conexion = await conectar()
 
     try:
         filas = await conexion.fetch(
@@ -127,9 +116,8 @@ async def ejecutar(aplicar: bool) -> int:
         for descripcion, cuantas in resumir(filas, correcciones).most_common():
             print(f"  {cuantas:>5}  {descripcion}")
 
-        if not aplicar:
-            print("\nSimulacro: no se ha escrito nada.")
-            print("Vuelve a lanzarlo con --aplicar para guardar los cambios.")
+        if not argumentos.aplicar:
+            avisar_simulacro()
             return 0
 
         # En una transacción: o se corrigen todas o ninguna. Dejar la tabla a
@@ -151,23 +139,7 @@ async def ejecutar(aplicar: bool) -> int:
         await conexion.close()
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Recalcula browser/os/device_type de las visitas ya guardadas."
-    )
-    parser.add_argument(
-        "--aplicar",
-        action="store_true",
-        help="escribe los cambios; sin esta opción solo se muestran",
-    )
-    argumentos = parser.parse_args()
-
-    try:
-        return asyncio.run(ejecutar(argumentos.aplicar))
-    except RuntimeError as error:  # falta configuración
-        print(f"❌ {error}", file=sys.stderr)
-        return 1
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        ejecutar_script("Recalcula browser/os/device_type de las visitas ya guardadas.", ejecutar)
+    )

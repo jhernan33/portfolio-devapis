@@ -11,6 +11,7 @@ from fastapi import Request
 
 from .config import Settings
 from .repositories.visits import VisitRepository
+from .timeutils import zona
 
 
 def get_settings(request: Request) -> Settings:
@@ -18,4 +19,10 @@ def get_settings(request: Request) -> Settings:
 
 
 def get_visits(request: Request) -> VisitRepository:
-    return VisitRepository(request.app.state.pool)
+    """
+    El repositorio recibe la zona de presentación porque la necesita para dos
+    cosas distintas: convertir las fechas que devuelve y decidir dónde empieza
+    el día en las consultas agregadas.
+    """
+    ajustes: Settings = request.app.state.settings
+    return VisitRepository(request.app.state.pool, zona(ajustes.display_tz))

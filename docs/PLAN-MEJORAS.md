@@ -20,7 +20,7 @@ refactorización (fase 3) sin la red de tests local de la fase 0.
 
 ---
 
-## Fase 0. Preparación (S, medio día en total)
+## Fase 0. Preparación (S, medio día en total) — HECHA 2026-09-02
 
 Objetivo: poder ejecutar todo en local antes de tocar nada.
 
@@ -47,7 +47,7 @@ Objetivo: poder ejecutar todo en local antes de tocar nada.
 
 ---
 
-## Fase 1. Seguridad y riesgos de arreglo rápido (S cada una, un día en total)
+## Fase 1. Seguridad y riesgos de arreglo rápido — HECHA 2026-09-02
 
 ### 1.1 Rate limit en el router privado
 - **Por qué:** HTTP Basic sin límite de intentos es fuerza bruta gratis.
@@ -109,7 +109,13 @@ incluidas en cada nivel; guarda de CI que arranca la imagen y lo comprueba.
 
 ---
 
-## Fase 2. Datos y tiempo (M, un día)
+## Fase 2. Datos y tiempo — HECHA 2026-09-02
+
+Desviaciones: `backfill_internal_flag` NO pasó a ser migración (se renombró a
+`reconciliar_trafico_interno` y sigue en cada arranque, porque la lista de
+redes cambia). La zona de presentación se aplica en el repositorio, no en una
+anotación de Pydantic, para no reintroducir estado global. La vista pierde
+`visits_today` en lugar de duplicar la definición de "hoy".
 
 ### 2.1 Migraciones versionadas
 - **Por qué:** el DDL está duplicado en `main.py` y en

@@ -16,6 +16,7 @@ import os
 from dataclasses import dataclass
 
 from .logs import LOGGER
+from .timeutils import ZONA_POR_DEFECTO
 
 # Variables sin las que el servicio no debe arrancar.
 REQUIRED_ENV = ("DB_PASSWORD", "ANALYTICS_USER", "ANALYTICS_PASSWORD", "ANALYTICS_IP_SALT")
@@ -32,6 +33,9 @@ class Settings:
     analytics_password: str
     ip_salt: str
     ignore_networks: tuple = ()
+    # Zona en la que se presentan las fechas y en la que se decide qué día es
+    # "hoy". No es un secreto, así que tiene valor por defecto.
+    display_tz: str = ZONA_POR_DEFECTO
 
     @property
     def auth_configured(self) -> bool:
@@ -93,4 +97,5 @@ def load_settings() -> Settings:
         analytics_password=os.getenv("ANALYTICS_PASSWORD"),
         ip_salt=os.getenv("ANALYTICS_IP_SALT"),
         ignore_networks=tuple(parse_ignore_networks(os.getenv("ANALYTICS_IGNORE_NETWORKS", ""))),
+        display_tz=os.getenv("ANALYTICS_DISPLAY_TZ", ZONA_POR_DEFECTO),
     )
