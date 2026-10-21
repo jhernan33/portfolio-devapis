@@ -11,8 +11,8 @@ Este documento te guía paso a paso para desplegar el sistema de analytics en tu
 Sobre ese último punto, tres comprobaciones que parecen obvias y no lo son.
 Las tres fallaron en el primer despliegue real y cada una cuesta una tarde:
 
-**1. El nombre exacto del contenedor.** `DB_HOST` no es un hostname de red: es
-el nombre del contenedor. Míralo, no lo recuerdes:
+**1. El nombre exacto del contenedor.** Va en `DB_CONTAINER` y lo usan los
+scripts del host para `docker exec`. Míralo, no lo recuerdes:
 
 ```bash
 docker ps --format '{{.Names}}' | grep -i postgres
@@ -60,7 +60,8 @@ nano .env
 Agregar el siguiente contenido (ajustar según tu configuración):
 
 ```env
-DB_HOST=                # obligatoria - NOMBRE DEL CONTENEDOR, verifícalo con docker ps
+DB_HOST=                # obligatoria - alias de PostgreSQL que solo exista en db-internal
+DB_CONTAINER=           # nombre del contenedor (docker ps), para los scripts
 DB_NAME=                # obligatoria
 DB_USER=                # obligatoria - rol dedicado, no el superusuario
 DB_PASSWORD=            # obligatoria
@@ -91,10 +92,10 @@ rol con permisos mínimos.
 # El esquema ya no se crea a mano: lo aplican las migraciones de
 # backend/migrations/ la primera vez que arranca analytics-api, y quedan
 # anotadas en la tabla schema_migrations. Solo hay que crear la base y el rol.
-docker exec -i "$DB_HOST" psql -U postgres -f - < database/create-analytics-role.sql
+docker exec -i "$DB_CONTAINER" psql -U postgres -f - < database/create-analytics-role.sql
 
 # Opción 2: Manualmente
-docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
+docker exec -it "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME"
 ```
 
 Si usas la opción 2, copia y pega el contenido de `database/create-analytics-role.sql`
@@ -102,7 +103,7 @@ Si usas la opción 2, copia y pega el contenido de `database/create-analytics-ro
 ### Verificar que la tabla se creó correctamente:
 
 ```bash
-docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "\dt cv_visits"
+docker exec -it "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "\dt cv_visits"
 ```
 
 Deberías ver:
@@ -169,7 +170,7 @@ curl -u "$ANALYTICS_USER:$ANALYTICS_PASSWORD" https://devapis.cloud/api/analytic
 
 ```bash
 docker compose logs analytics-api | grep Migración
-docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c \
+docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c \
   "SELECT * FROM schema_migrations ORDER BY version;"
 ```
 
@@ -222,19 +223,19 @@ https://devapis.cloud/analytics
 ### Ver todas las visitas:
 
 ```sql
-docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT * FROM cv_visits ORDER BY visited_at DESC LIMIT 10;"
+docker exec -it "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT * FROM cv_visits ORDER BY visited_at DESC LIMIT 10;"
 ```
 
 ### Ver resumen de analytics:
 
 ```sql
-docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT * FROM cv_analytics_summary;"
+docker exec -it "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT * FROM cv_analytics_summary;"
 ```
 
 ### Ver top 10 redes (las IPs no se almacenan):
 
 ```sql
-docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "
+docker exec -it "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "
   SELECT ip_prefix, COUNT(*) as visits, MAX(visited_at) as last_visit
   FROM cv_visits
   GROUP BY ip_prefix
@@ -246,7 +247,7 @@ docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "
 ### Ver estadísticas de navegadores:
 
 ```sql
-docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "
+docker exec -it "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "
   SELECT browser, COUNT(*) as count
   FROM cv_visits
   GROUP BY browser
@@ -262,7 +263,7 @@ docker exec -it "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -c "
 
 **Solución**:
 
-1. Verificar que el contenedor de `DB_HOST` está corriendo:
+1. Verificar que el contenedor de `DB_CONTAINER` está corriendo:
    ```bash
    docker ps --format '{{.Names}}' | grep -i postgres
    ```
@@ -303,6 +304,18 @@ primero con TLS y, si lo rechazan, reintenta sin cifrar; el mensaje que ves es
 el del **segundo** intento, así que "no encryption" despista: puede que el
 problema real fuese la falta de una regla `hostssl` para ese rol. Mira
 `pg_hba_file_rules` antes de tocar nada.
+
+Fíjate también en la **IP** del mensaje. Si es `172.18.x` (la red `server`) y
+no `172.28.x` (`db-internal`), la regla existe pero la conexión entró por la
+red equivocada: PostgreSQL está en las dos y `DB_HOST` resolvió a la IP de
+`server`. Se arregla apuntando `DB_HOST` a un alias que solo exista en
+`db-internal` y recreando con `docker compose up -d analytics-api`
+(`restart` no relee `.env`). No amplíes `pg_hba.conf` a `172.18.0.0/16`:
+ahí está todo lo que publica Traefik.
+
+El `pg_hba.conf` activo es el de `hba_file` en la línea de comandos del
+contenedor (`docker inspect <contenedor> --format '{{json .Config.Cmd}}'`),
+no necesariamente el de `$PGDATA`, que puede ser el de `initdb` sin usar.
 
 ### Problema: las peticiones expiran, sin 502 ni entrada en el log de Traefik
 
@@ -379,7 +392,7 @@ Restaurar:
 
 ```bash
 gunzip -c cv-analytics-2026-09-02.sql.gz | \
-  docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
+  docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME"
 ```
 
 ### Retención
@@ -419,7 +432,7 @@ docker compose restart
 
 ```bash
 # Comando que se actualiza cada 5 segundos
-watch -n 5 'docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT * FROM cv_analytics_summary;"'
+watch -n 5 'docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT * FROM cv_analytics_summary;"'
 ```
 
 ## 🎯 Próximos Pasos
@@ -489,7 +502,7 @@ seguiste en la misma base o migraste a una dedicada.
 Haz **siempre** la copia de seguridad primero: los dos caminos son irreversibles.
 
 ```bash
-set -a; . ./.env; set +a   # DB_HOST, DB_NAME, DB_USER
+set -a; . ./.env; set +a   # DB_CONTAINER, DB_NAME, DB_USER
 ```
 
 #### Caso A — Base nueva y dedicada (empezar de cero)
@@ -500,11 +513,11 @@ con eliminar la tabla vieja entera:
 
 ```bash
 # 1. Copia de seguridad de la tabla antigua
-docker exec "$DB_HOST" pg_dump -U postgres -d postgres -t cv_visits \
+docker exec "$DB_CONTAINER" pg_dump -U postgres -d postgres -t cv_visits \
   > cv_visits_legacy_$(date +%F).sql
 
 # 2. Eliminar la tabla con las IPs en claro (y su vista dependiente)
-docker exec -i "$DB_HOST" psql -U postgres -d postgres \
+docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres \
   -c "DROP TABLE cv_visits CASCADE;"
 ```
 
@@ -522,12 +535,12 @@ El backend rellena `ip_prefix`/`ip_hash` de las filas antiguas al arrancar
 
 ```bash
 # 1. Copia de seguridad
-docker exec "$DB_HOST" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
+docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
   > cv_visits_backup_$(date +%F).sql
 
 # 2. Purga
 cat database/migrate-anonymize-ips.sql | \
-  docker exec -i "$DB_HOST" psql -U "$DB_USER" -d "$DB_NAME"
+  docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME"
 ```
 
 El script aborta si detecta filas todavía sin anonimizar. Ejecútalo contra la
@@ -548,7 +561,7 @@ el backend corregido.
 set -a; . ./.env; set +a
 
 # 1. Copia de seguridad (rápida, la migración es acotada pero escribe)
-docker exec "$DB_HOST" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
+docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
   > cv_visits_backup_$(date +%F).sql
 
 # 2. Simulacro: enseña qué cambiaría y no escribe nada
@@ -701,7 +714,7 @@ es el filtro. Volver adelante lo restaura solo, sin tocar datos.
 Comprobarlo en un segundo:
 
 ```bash
-docker exec -e PGPASSWORD="$DB_PASSWORD" "$DB_HOST" \
+docker exec -e PGPASSWORD="$DB_PASSWORD" "$DB_CONTAINER" \
   psql -U "$DB_USER" -d "$DB_NAME" -tAc \
   "SELECT pg_get_viewdef('cv_analytics_summary', true);" | grep -c is_internal
 # 1 = la vista filtra · 0 = está contando tráfico propio
@@ -721,7 +734,7 @@ un hash con sal, y de un hash no se recupera la IP. Consecuencia práctica:
 Antes de cualquier operación que toque la base, la copia:
 
 ```bash
-docker exec "$DB_HOST" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
+docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" -d "$DB_NAME" -t cv_visits \
   > cv_visits_backup_$(date +%F).sql
 ```
 

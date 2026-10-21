@@ -217,15 +217,22 @@ errors by design, so nothing surfaced. Public (100) also outranks private (90) s
 `/api/track` never falls through to the private router.
 
 Both services join the external **`server`** network (Traefik). `analytics-api`
-**additionally joins `db-internal`**, because the PostgreSQL container is deliberately
-not on `server`; without that second network the service cannot resolve `DB_HOST` and
-dies at startup with `gaierror: Temporary failure in name resolution`. Create `server`
+**additionally joins `db-internal`**, because `pg_hba.conf` only admits `cv_analytics`
+(`hostssl`) from the `db-internal` subnet; without that second network the service
+cannot reach the database and dies at startup. Create `server`
 with `docker network create server` if missing; `db-internal` belongs to the project
 that owns PostgreSQL.
 
-**`DB_HOST` is a container name, and it is not guessable.** Read it from the host
-rather than from memory or from this file — `docker ps --format '{{.Names}}' | grep -i postgres`
-— and confirm the container shares a network with `analytics-api`. Traefik uses cert
+**`DB_HOST` must be an alias that exists only on `db-internal`, not the container
+name.** The PostgreSQL container is *also* on `server` (attached by hand for another
+project), so its container name resolves to either network's IP; when it picked the
+`server` one, `pg_hba.conf` rejected the connection and the service restart-looped.
+An alias defined under `networks.db-internal.aliases` in PostgreSQL's own compose
+resolves only to the `db-internal` IP. The host-side scripts (`deploy-analytics.sh`,
+`tools/respaldar-db.sh`) need the real container name for `docker exec`, so it lives
+in a separate **`DB_CONTAINER`** (falls back to `DB_HOST`). Read both from the host,
+never from memory — `docker ps --format '{{.Names}}' | grep -i postgres` and
+`docker inspect <container> --format '{{json .NetworkSettings.Networks}}'`. Traefik uses cert
 resolver `resolver` for automatic TLS. Routing labels live in `docker-compose.yaml`;
 the `/cv` prefix is stripped by the `cv-stripprefix` middleware before reaching Nginx.
 
@@ -252,7 +259,8 @@ every route for the four headers and for exactly one `Cache-Control`.
 Unlike the pure-static original, the backend **does use secrets**. `.env` (gitignored) supplies DB credentials consumed by `docker-compose.yaml` → the analytics container:
 
 ```
-DB_HOST=...              # required — the PostgreSQL *container name*, verify with docker ps
+DB_HOST=...              # required — a db-internal-only alias of PostgreSQL, see above
+DB_CONTAINER=...         # PostgreSQL *container name*, for docker exec in the scripts
 DB_NAME=...              # required
 DB_USER=...              # required — a dedicated role, not the postgres superuser
 DB_PASSWORD=...          # required
@@ -349,6 +357,8 @@ enforces the size and the meta tags in CI, and needs no Pillow.
 **Backend unhealthy / DB errors:** `/health` returns 503 if the pool can't reach Postgres. Verify the container named in `DB_HOST` is up (`docker ps | grep -i postgres`), that it shares a network with `analytics-api`, and that `.env` credentials are correct; `docker compose logs -f analytics-api`.
 
 **`gaierror: Temporary failure in name resolution` at startup:** `DB_HOST` names a container that either does not exist or shares no Docker network with `analytics-api`. Check both — the name is the more common mistake, the network the more confusing one, because the name resolves fine from the host shell and only fails inside the container.
+
+**`pg_hba.conf rejects connection for host "172.18.…" … no encryption`:** the connection arrived over `server` (`172.18.0.0/16`) instead of `db-internal`, because `DB_HOST` is a name that resolves on both. Point `DB_HOST` at a `db-internal`-only alias and recreate with `docker compose up -d analytics-api` (`restart` does not re-read `.env`). Do not widen `pg_hba.conf` to the `server` subnet: every container behind Traefik is on it. Do not disconnect PostgreSQL from `server` either — other projects reach it there.
 
 **Backend refuses to start / `docker compose up` errors on a variable:** a required secret is missing from `.env` (`DB_PASSWORD`, `ANALYTICS_USER`, `ANALYTICS_PASSWORD`, `ANALYTICS_IP_SALT`). This is intended behaviour, not a bug.
 

@@ -94,22 +94,26 @@ if [ -n "$MISSING" ]; then
 fi
 
 DB_PORT="${DB_PORT:-5432}"
+# DB_HOST es lo que resuelve analytics-api dentro de Docker y puede ser un
+# alias de red; `docker exec` y `docker inspect` necesitan el nombre del
+# contenedor. Si no se define aparte, son el mismo.
+DB_CONTAINER="${DB_CONTAINER:-$DB_HOST}"
 
 # El contenedor tiene que existir con ESE nombre exacto. Comparación exacta,
 # no `grep`: una subcadena coincide con contenedores que no son el nuestro.
-if ! docker ps -a --format '{{.Names}}' | grep -qxF "$DB_HOST"; then
-    echo -e "${RED}❌ No existe ningún contenedor llamado exactamente '${DB_HOST}'${NC}"
-    echo "   DB_HOST es el nombre del contenedor de PostgreSQL. Candidatos:"
+if ! docker ps -a --format '{{.Names}}' | grep -qxF "$DB_CONTAINER"; then
+    echo -e "${RED}❌ No existe ningún contenedor llamado exactamente '${DB_CONTAINER}'${NC}"
+    echo "   DB_CONTAINER (o DB_HOST si no la defines) es el nombre del contenedor de PostgreSQL. Candidatos:"
     docker ps -a --format '     {{.Names}}  ({{.Status}})' | grep -i postgres || echo "     (ninguno)"
     exit 1
 fi
 
 # Y tiene que compartir red con analytics-api, o el contenedor no resolverá
 # el nombre por muy correcto que sea.
-DB_NETS=$(docker inspect "$DB_HOST" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}')
-echo "   Redes de ${DB_HOST}: ${DB_NETS}"
+DB_NETS=$(docker inspect "$DB_CONTAINER" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}')
+echo "   Redes de ${DB_CONTAINER}: ${DB_NETS}"
 if ! grep -qE 'server|db-internal' <<<"$DB_NETS"; then
-    echo -e "${YELLOW}⚠️  ${DB_HOST} no está en 'server' ni en 'db-internal'.${NC}"
+    echo -e "${YELLOW}⚠️  ${DB_CONTAINER} no está en 'server' ni en 'db-internal'.${NC}"
     echo "   Añade su red a la clave 'networks' de analytics-api en docker-compose.yaml,"
     echo "   o analytics-api fallará con 'gaierror: name resolution'."
 fi
@@ -122,12 +126,12 @@ echo ""
 # fijos: con una base dedicada (database/create-analytics-role.sql) el
 # esquema debe crearse ahí y no en `postgres`.
 # PGPASSWORD va por entorno para no dejar la contraseña en la lista de procesos.
-PSQL="docker exec -i -e PGPASSWORD=${DB_PASSWORD} ${DB_HOST} psql -U ${DB_USER} -d ${DB_NAME}"
+PSQL="docker exec -i -e PGPASSWORD=${DB_PASSWORD} ${DB_CONTAINER} psql -U ${DB_USER} -d ${DB_NAME}"
 
 # Comprobar que las credenciales de .env funcionan antes de seguir
 if ! $PSQL -tAc "SELECT 1" >/dev/null 2>&1; then
-    echo -e "${RED}❌ No se puede conectar como ${DB_USER} a ${DB_NAME} en ${DB_HOST}${NC}"
-    echo "   Comprueba DB_HOST / DB_NAME / DB_USER / DB_PASSWORD en .env y que la base exista."
+    echo -e "${RED}❌ No se puede conectar como ${DB_USER} a ${DB_NAME} en ${DB_CONTAINER}${NC}"
+    echo "   Comprueba DB_CONTAINER / DB_NAME / DB_USER / DB_PASSWORD en .env y que la base exista."
     exit 1
 fi
 
@@ -294,13 +298,13 @@ echo ""
 echo "🔍 Comandos útiles:"
 echo "   • Ver logs: docker compose logs -f analytics-api"
 echo "   • Reiniciar: docker compose restart analytics-api"
-echo "   • Ver stats: docker exec -i ${DB_HOST} psql -U ${DB_USER} -d ${DB_NAME} -c 'SELECT * FROM cv_analytics_summary;'"
+echo "   • Ver stats: docker exec -i ${DB_CONTAINER} psql -U ${DB_USER} -d ${DB_NAME} -c 'SELECT * FROM cv_analytics_summary;'"
 echo ""
 echo "📝 Próximos pasos:"
 echo "   1. Visita tu CV: https://devapis.cloud/cv"
 echo "   2. Abre el dashboard: https://devapis.cloud/analytics"
 echo "   3. Si vienes de una versión anterior, purga las IPs históricas:"
-echo "      cat database/migrate-anonymize-ips.sql | docker exec -i ${DB_HOST} psql -U ${DB_USER} -d ${DB_NAME}"
+echo "      cat database/migrate-anonymize-ips.sql | docker exec -i ${DB_CONTAINER} psql -U ${DB_USER} -d ${DB_NAME}"
 echo ""
 
 # Mostrar visitas actuales

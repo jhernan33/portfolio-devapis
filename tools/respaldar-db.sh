@@ -21,7 +21,7 @@
 #   30 3 * * * cd /ruta/al/repo && ./tools/respaldar-db.sh >> ~/respaldos/cv.log 2>&1
 #
 # Restaurar:
-#   gunzip -c cv-analytics-2026-09-02.sql.gz | docker exec -i "$DB_HOST" \
+#   gunzip -c cv-analytics-2026-09-02.sql.gz | docker exec -i "$DB_CONTAINER" \
 #       psql -U "$DB_USER" -d "$DB_NAME"
 
 set -euo pipefail
@@ -46,9 +46,13 @@ for variable in DB_HOST DB_NAME DB_USER DB_PASSWORD; do
     fi
 done
 
-if ! docker ps --format '{{.Names}}' | grep -qx "$DB_HOST"; then
-    echo "❌ No hay ningún contenedor llamado '$DB_HOST' en marcha." >&2
-    echo "   DB_HOST es el nombre del contenedor de PostgreSQL; compruébalo con:" >&2
+# `docker exec` necesita el nombre del contenedor, y DB_HOST puede ser un alias
+# de red que solo existe dentro de Docker (ver .env.example).
+DB_CONTAINER="${DB_CONTAINER:-$DB_HOST}"
+
+if ! docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER"; then
+    echo "❌ No hay ningún contenedor llamado '$DB_CONTAINER' en marcha." >&2
+    echo "   Define DB_CONTAINER en .env con el nombre del contenedor de PostgreSQL:" >&2
     echo "   docker ps --format '{{.Names}}' | grep -i postgres" >&2
     exit 1
 fi
@@ -56,8 +60,8 @@ fi
 mkdir -p "$DESTINO"
 FICHERO="$DESTINO/cv-analytics-$(date +%Y-%m-%d_%H%M).sql.gz"
 
-echo "📦 Volcando $DB_NAME desde el contenedor $DB_HOST..."
-docker exec -e PGPASSWORD="$DB_PASSWORD" "$DB_HOST" \
+echo "📦 Volcando $DB_NAME desde el contenedor $DB_CONTAINER..."
+docker exec -e PGPASSWORD="$DB_PASSWORD" "$DB_CONTAINER" \
     pg_dump -U "$DB_USER" -d "$DB_NAME" --no-owner --no-privileges \
     | gzip -9 > "$FICHERO"
 

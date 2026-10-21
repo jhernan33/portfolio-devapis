@@ -67,7 +67,7 @@ services:
       # apuntó durante meses a un contenedor inexistente y el servicio se pasó
       # ese tiempo en bucle de reinicio con `gaierror: name resolution`.
       # Es preferible que `docker compose up` falle a que arranque adivinando.
-      - DB_HOST=${DB_HOST:?DB_HOST es obligatoria, define el nombre del contenedor de PostgreSQL en .env}
+      - DB_HOST=${DB_HOST:?DB_HOST es obligatoria, define en .env un alias de PostgreSQL que solo exista en db-internal}
       - DB_NAME=${DB_NAME:?DB_NAME es obligatoria, defínela en .env}
       - DB_USER=${DB_USER:?DB_USER es obligatoria, defínela en .env}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD es obligatoria, defínela en .env}
